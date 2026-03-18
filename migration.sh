@@ -1,13 +1,29 @@
 #!/bin/bash
 
-# 1. On s'assure que le .ico et le .png sont au bon endroit
+# 1. On crée l'arborescence complète au cas où
 mkdir -p src/assets
-cp src/assets/transparent-logo.png src/assets/logo.png 2>/dev/null
+mkdir -p src/bulkpdf/ui/views
+touch src/__init__.py
+touch src/bulkpdf/__init__.py
+touch src/bulkpdf/ui/__init__.py
+touch src/bulkpdf/ui/views/__init__.py
 
-# 2. Régénérer l'icône proprement
-python3 -c "from PIL import Image; img=Image.open('src/assets/logo.png').convert('RGBA'); img.save('src/assets/app_icon.ico', sizes=[(256,256)])"
+# 2. On répare MERGE_PAGE (Le contenu central)
+cat <<EOF > "src/bulkpdf/ui/views/merge_page.py"
+import customtkinter as ctk
 
-# 3. Mise à jour de NAVIGATION.PY avec ancrage mémoire
+class MergePage(ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, fg_color="#242424", **kwargs)
+        self.label = ctk.CTkLabel(self, text="BIENVENUE DANS MERGE PDF", 
+                                   font=("Segoe UI", 24, "bold"), text_color="#8a55d1")
+        self.label.pack(pady=50, padx=20)
+        
+        self.btn = ctk.CTkButton(self, text="+ Ajouter des fichiers", fg_color="#8a55d1")
+        self.btn.pack(pady=20)
+EOF
+
+# 3. On répare NAVIGATION (La Sidebar avec Logo)
 cat <<EOF > "src/bulkpdf/ui/navigation.py"
 import customtkinter as ctk
 from PIL import Image
@@ -15,73 +31,77 @@ import os
 
 class NavigationView(ctk.CTkFrame):
     def __init__(self, master, current_page_callback, **kwargs):
-        # On force une couleur de fond différente pour voir si le logo est "invisible"
-        super().__init__(master, fg_color="#2b2b2b", width=220, **kwargs)
+        super().__init__(master, width=220, fg_color="#1a1a2e", **kwargs)
         
-        # Chemin dynamique absolu
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        logo_path = os.path.join(base_path, "assets", "logo.png")
+        # Chemin du logo
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        logo_path = os.path.join(base_dir, "assets", "logo.png")
         
-        print(f"--- DIAGNOSTIC IMAGE ---")
-        print(f"Recherche logo ici : {logo_path}")
+        # Logo + Titre
+        try:
+            img_pil = Image.open(logo_path).convert("RGBA")
+            self.logo_img = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(40, 40))
+            self.logo_label = ctk.CTkLabel(self, text=" BULK PDF", image=self.logo_img, 
+                                           compound="left", font=("Segoe UI", 20, "bold"))
+        except:
+            self.logo_label = ctk.CTkLabel(self, text="BULK PDF", font=("Segoe UI", 20, "bold"))
         
-        if os.path.exists(logo_path):
-            try:
-                img_pil = Image.open(logo_path).convert("RGBA")
-                # CTkImage a besoin d'être gardé en mémoire (self.logo_img)
-                self.logo_img = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(50, 50))
-                
-                self.logo_label = ctk.CTkLabel(
-                    self, 
-                    text="  BULK PDF", 
-                    image=self.logo_img, 
-                    compound="left", 
-                    font=("Segoe UI", 20, "bold"),
-                    text_color="white" # On force le texte en blanc
-                )
-                self.logo_label.pack(pady=40, padx=20, anchor="w")
-                print("[OK] L'objet image a été créé et packé.")
-            except Exception as e:
-                print(f"[!] Erreur PIL : {e}")
-        else:
-            print("[!] Le fichier logo.png est physiquement introuvable à cette adresse.")
+        self.logo_label.pack(pady=30, padx=20, anchor="w")
+
+        # Bouton Navigation
+        self.btn = ctk.CTkButton(self, text="Merge PDF", fg_color="transparent", 
+                                 anchor="w", command=lambda: current_page_callback("merge"))
+        self.btn.pack(fill="x", padx=10, pady=5)
 EOF
 
-# 4. Mise à jour de MAIN.PY (Standard)
+# 4. On répare MAIN (L'assemblage)
 cat <<EOF > "src/main.py"
 import customtkinter as ctk
+import sys
 import os
-import ctypes
+
+# Important : On dit à Python où chercher les modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+
 from bulkpdf.ui.navigation import NavigationView
+from bulkpdf.ui.views.merge_page import MergePage
 
 class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        
-        # Force l'ID pour l'icône Windows
-        try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('bulk.pdf.pro.unique.id')
-        except:
-            pass
-
-        self.title("BulkPDF Pro")
+        self.title("BulkPDF Pro v2.0")
         self.geometry("1100x700")
-
-        # Icône de la fenêtre
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        icon_path = os.path.join(base_dir, "assets", "app_icon.ico")
         
-        if os.path.exists(icon_path):
-            self.iconbitmap(icon_path)
-            self.after(200, lambda: self.wm_iconbitmap(icon_path))
+        # Layout principal : 2 colonnes
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
-        # Setup Layout
-        self.nav = NavigationView(self, lambda p: print(f"Nav: {p}"))
-        self.nav.pack(side="left", fill="y")
+        # 1. Ajouter la Sidebar
+        self.navigation = NavigationView(self, self.show_page)
+        self.navigation.grid(row=0, column=0, sticky="nsew")
+
+        # 2. Ajouter le conteneur de pages
+        self.container = ctk.CTkFrame(self, fg_color="transparent")
+        self.container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        self.container.grid_columnconfigure(0, weight=1)
+        self.container.grid_rowconfigure(0, weight=1)
+
+        # 3. Charger les pages
+        self.pages = {
+            "merge": MergePage(self.container)
+        }
+        self.show_page("merge")
+
+    def show_page(self, page_name):
+        for page in self.pages.values():
+            page.grid_forget()
+        if page_name in self.pages:
+            self.pages[page_name].grid(row=0, column=0, sticky="nsew")
 
 if __name__ == "__main__":
+    ctk.set_appearance_mode("dark")
     app = BulkPDFApp()
     app.mainloop()
 EOF
 
-echo "[+] Script appliqué. Relance ./run_app.sh"
+echo "[+] Reconstruction terminée."
