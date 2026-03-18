@@ -1,91 +1,65 @@
-import fitz
+import pikepdf
 import threading
-import os
-from pathlib import Path
 
 class PDFTask(threading.Thread):
-    def __init__(self, files, output_path, callback_progress, callback_done, mode="merge", password=""):
+    def __init__(self, files, output, progress_callback, done_callback, mode="merge", password=None):
         super().__init__()
-        self.files = [Path(f) for f in files]
-        self.output_path = str(output_path)
-        self.callback_progress = callback_progress
-        self.callback_done = callback_done
+        self.files = files
+        self.output = output
+        self.progress_callback = progress_callback
+        self.done_callback = done_callback
         self.mode = mode
-        self.password = password
+        # On garde le mot de passe brut pour les tests d'encodage
+        self.password_raw = str(password).strip() if password else ""
+        self.daemon = True
 
     def run(self):
+        result = None
         try:
-            if self.mode == "merge": self._merge()
-            elif self.mode == "compress": self._compress()
-            elif self.mode == "unlock": self._unlock()
-            elif self.mode == "protect": self._protect()
-            elif self.mode == "extract": self._extract()
+            if self.mode == "unlocked": result = self.unlock_pdf()
+            elif self.mode == "encrypted": result = self.protect_pdf()
+            elif self.mode == "merge": result = self.merge_pdfs()
+            elif self.mode == "compressed": result = self.compress_pdf()
         except Exception as e:
-            self.callback_done(f"Erreur: {str(e)}")
+            err = str(e).lower()
+            if "password" in err or "unauthenticated" in err:
+                result = "Error: Incorrect password"
+            else:
+                result = f"Error: {str(e)}"
+        finally:
+            self.done_callback(result)
 
-    def _protect(self):
-        """Crypte un PDF même s'il est déjà protégé ou ouvert"""
-        if not self.files: return
-        
-        # On ouvre le document source
-        doc = fitz.open(str(self.files[0]))
-        
-        # Si le document est déjà crypté, on tente de l'ouvrir avec le MDP fourni
-        if doc.is_encrypted:
-            doc.authenticate(self.password)
-            
-        # On sauvegarde sous un nouveau nom avec le nouveau MDP
-        doc.save(
-            self.output_path,
-            user_pw=self.password,
-            encryption=fitz.PDF_ENCRYPT_AES_256,
-            permissions=fitz.PDF_PERM_PRINT | fitz.PDF_PERM_COPY,
-            garbage=4,
-            deflate=True
-        )
-        doc.close()
-        self.callback_done(self.output_path)
+    def unlock_pdf(self):
+        # TENTATIVE 1 : Mot de passe normal
+        try:
+            with pikepdf.open(self.files[0], password=self.password_raw) as pdf:
+                pdf.save(self.output)
+                return self.output
+        except pikepdf.PasswordError:
+            # TENTATIVE 2 : On essaie avec un encodage différent (pour les caractères spéciaux)
+            try:
+                alt_pass = self.password_raw.encode('utf-8').decode('latin-1')
+                with pikepdf.open(self.files[0], password=alt_pass) as pdf:
+                    pdf.save(self.output)
+                    return self.output
+            except:
+                raise pikepdf.PasswordError("Incorrect password")
 
-    def _unlock(self):
-        doc = fitz.open(str(self.files[0]))
-        if doc.is_encrypted:
-            if not doc.authenticate(self.password):
-                doc.close()
-                raise Exception("Mot de passe incorrect pour le déverrouillage")
-        doc.save(self.output_path, encryption=fitz.PDF_ENCRYPT_NONE)
-        doc.close()
-        self.callback_done(self.output_path)
+    def protect_pdf(self):
+        with pikepdf.open(self.files[0]) as pdf:
+            enc = pikepdf.Encryption(user=self.password_raw, owner=self.password_raw, R=6)
+            pdf.save(self.output, encryption=enc)
+        return self.output
 
-    def _merge(self):
-        doc_dest = fitz.open()
-        for i, f in enumerate(self.files):
-            src = fitz.open(str(f))
-            if src.is_encrypted:
-                src.authenticate(self.password)
-            doc_dest.insert_pdf(src)
-            src.close()
-            self.callback_progress((i + 1) / len(self.files))
-        doc_dest.save(self.output_path)
-        doc_dest.close()
-        self.callback_done(self.output_path)
+    def merge_pdfs(self):
+        dst = pikepdf.Pdf.new()
+        for f in self.files:
+            with pikepdf.open(f) as src:
+                dst.pages.extend(src.pages)
+        dst.save(self.output)
+        return self.output
 
-    def _compress(self):
-        doc = fitz.open(str(self.files[0]))
-        doc.save(self.output_path, garbage=4, deflate=True)
-        doc.close()
-        self.callback_done(self.output_path)
-
-    def _extract(self):
-        output_dir = Path(self.output_path).parent / f"Images_{Path(self.output_path).stem}"
-        if not output_dir.exists(): os.makedirs(output_dir)
-        doc = fitz.open(str(self.files[0]))
-        count = 0
-        for page in doc:
-            for img in page.get_images():
-                xref = img[0]
-                pix = fitz.Pixmap(doc, xref)
-                if pix.n - pix.alpha > 3: pix = fitz.Pixmap(fitz.csRGB, pix)
-                pix.save(str(output_dir / f"p{page.number}_x{xref}.png"))
-                count += 1
-        doc.close()
-        self.callback_done(f"{count} images extraites")
+    def compress_pdf(self):
+        with pikepdf.open(self.files[0]) as pdf:
+            pdf.save(self.output, linearize=True)
+        return self.output

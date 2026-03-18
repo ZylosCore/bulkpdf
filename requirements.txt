@@ -1,3 +1,5 @@
 customtkinter
 pillow
 pymupdf
+PyPDF2
+pikepdf

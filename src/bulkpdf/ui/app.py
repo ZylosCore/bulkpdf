@@ -13,7 +13,7 @@ class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("BulkPDF Pro - 4K Edition")
-        self.geometry("1500x800")
+        self.geometry("1300x700")
         self.configure(fg_color=BG_COLOR)
 
         # Layout Configuration
