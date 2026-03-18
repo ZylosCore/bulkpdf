@@ -1,5 +1,6 @@
 import pikepdf
 import threading
+import sys
 
 class PDFTask(threading.Thread):
     def __init__(self, files, output, progress_callback, done_callback, mode="merge", password=None):
@@ -9,45 +10,43 @@ class PDFTask(threading.Thread):
         self.progress_callback = progress_callback
         self.done_callback = done_callback
         self.mode = mode
-        # On garde le mot de passe brut pour les tests d'encodage
-        self.password_raw = str(password).strip() if password else ""
+        self.password = str(password).strip() if password else ""
         self.daemon = True
 
     def run(self):
         result = None
         try:
-            if self.mode == "unlocked": result = self.unlock_pdf()
-            elif self.mode == "encrypted": result = self.protect_pdf()
-            elif self.mode == "merge": result = self.merge_pdfs()
-            elif self.mode == "compressed": result = self.compress_pdf()
-        except Exception as e:
-            err = str(e).lower()
-            if "password" in err or "unauthenticated" in err:
-                result = "Error: Incorrect password"
+            print(f"[*] Starting task: {self.mode} on {self.files[0] if self.files else 'No File'}")
+            
+            if self.mode == "unlocked":
+                result = self.unlock_pdf()
+            elif self.mode == "encrypted":
+                result = self.protect_pdf()
+            elif self.mode == "merge":
+                result = self.merge_pdfs()
+            elif self.mode == "compressed":
+                result = self.compress_pdf()
             else:
-                result = f"Error: {str(e)}"
+                result = f"Error: Unknown mode {self.mode}"
+        except pikepdf.PasswordError:
+            result = "Error: Incorrect password"
+        except Exception as e:
+            result = f"Error: {str(e)}"
         finally:
+            print(f"[+] Task finished with result: {result}")
             self.done_callback(result)
 
     def unlock_pdf(self):
-        # TENTATIVE 1 : Mot de passe normal
-        try:
-            with pikepdf.open(self.files[0], password=self.password_raw) as pdf:
-                pdf.save(self.output)
-                return self.output
-        except pikepdf.PasswordError:
-            # TENTATIVE 2 : On essaie avec un encodage différent (pour les caractères spéciaux)
-            try:
-                alt_pass = self.password_raw.encode('utf-8').decode('latin-1')
-                with pikepdf.open(self.files[0], password=alt_pass) as pdf:
-                    pdf.save(self.output)
-                    return self.output
-            except:
-                raise pikepdf.PasswordError("Incorrect password")
+        # UNLOCK : On DOIT fournir le password pour ouvrir
+        with pikepdf.open(self.files[0], password=self.password) as pdf:
+            pdf.save(self.output)
+        return self.output
 
     def protect_pdf(self):
+        # LOCK : On ouvre SANS password (fichier source sain)
+        # On ajoute le password uniquement à la sauvegarde
         with pikepdf.open(self.files[0]) as pdf:
-            enc = pikepdf.Encryption(user=self.password_raw, owner=self.password_raw, R=6)
+            enc = pikepdf.Encryption(user=self.password, owner=self.password, allow=pikepdf.Permissions(extract=False))
             pdf.save(self.output, encryption=enc)
         return self.output
 

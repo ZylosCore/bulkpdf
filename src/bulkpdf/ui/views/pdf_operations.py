@@ -10,7 +10,7 @@ class PDFOperationsView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, fg_color="transparent", **kwargs)
         self.files_paths = []
-        self.mode_name = "processed" # Sera surchargé par les enfants
+        self.mode_name = "processed"
         
         self.label = ctk.CTkLabel(self, text="PDF Operation", font=(FONT_FAMILY, 16, "bold"), text_color=TEXT_TITLE)
         self.label.pack(pady=(0, 10), anchor="w")
@@ -22,7 +22,7 @@ class PDFOperationsView(ctk.CTkFrame):
         self.empty_label.pack(pady=60)
 
         self.progress = ctk.CTkProgressBar(self, progress_color=ACCENT_PURPLE, height=6)
-        self.progress.set(0)
+        # On ne pack pas la progress bar de suite pour garder l'interface propre
 
         self.action_bar = ctk.CTkFrame(self, fg_color="transparent")
         self.action_bar.pack(fill="x", pady=15)
@@ -30,7 +30,8 @@ class PDFOperationsView(ctk.CTkFrame):
         self.add_btn = ctk.CTkButton(self.action_bar, text="+ Add Files", height=32, fg_color=ACCENT_PURPLE, command=self.browse_files)
         self.add_btn.pack(side="left", padx=5)
 
-        self.run_btn = ctk.CTkButton(self.action_bar, text="Run Task", height=32, fg_color=("#27ae60", "#2ecc71"), command=self.execute_task)
+        # BOUTON VERT : On s'assure qu'il appelle bien self.execute_task
+        self.run_btn = ctk.CTkButton(self.action_bar, text="Run Task", height=32, fg_color=("#27ae60", "#2ecc71"), hover_color="#219150", command=self.execute_task)
         self.run_btn.pack(side="right", padx=5)
 
     def get_smart_filename(self):
@@ -53,18 +54,39 @@ class PDFOperationsView(ctk.CTkFrame):
         card.destroy()
 
     def execute_task(self):
-        if not self.files_paths: return
+        # 1. Vérification des fichiers
+        if not self.files_paths:
+            messagebox.showwarning("Empty", "Please add files before running the task.")
+            return
+            
+        # 2. Récupération dynamique du mot de passe
+        pw = None
+        if hasattr(self, "password_entry"):
+            pw = self.password_entry.get().strip()
+            if not pw and self.mode_name in ["encrypted", "unlocked"]:
+                messagebox.showwarning("Missing Info", "Please enter a password.")
+                return
+
+        # 3. Fenêtre de sauvegarde
         out = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile=self.get_smart_filename())
         if out:
-            self.progress.pack(fill="x", pady=10)
-            task = PDFTask(self.files_paths, out, self.on_progress, self.on_done, mode=self.mode_name)
+            print(f"[DEBUG] Launching {self.mode_name} task...")
+            self.progress.pack(fill="x", pady=(0, 10))
+            self.progress.set(0.1) # Petit boost visuel au départ
+            
+            task = PDFTask(self.files_paths, out, self.on_progress, self.on_done, mode=self.mode_name, password=pw)
             task.start()
 
-    def on_progress(self, v): self.progress.set(v)
+    def on_progress(self, v): 
+        self.progress.set(v)
+    
     def on_done(self, res):
         self.progress.pack_forget()
-        if "Error" in str(res): messagebox.showerror("Error", res)
-        if hasattr(self, "scroll"):
+        if res and "Error" in str(res):
+            messagebox.showerror("Task Failed", res)
+        else:
+            # Succès : On active la pastille verte 🟢 sur TOUTES les cartes
             for card in self.scroll.winfo_children():
-                if hasattr(card, "mark_success"): card.mark_success()
-        else: messagebox.showinfo("Success", "Task completed successfully!")
+                if hasattr(card, "mark_success"):
+                    card.mark_success()
+            messagebox.showinfo("Success", "Operation completed successfully!")
