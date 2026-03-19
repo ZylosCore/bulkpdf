@@ -22,6 +22,8 @@ class EditPage(ctk.CTkFrame):
         self.active_entry = None
         self.active_window = None
         self.drag_data = {"x": 0, "y": 0, "item": None}
+        self._drag_lock = False  # Verrou pour la fluidité du déplacement
+        
         self.current_font_size = 14
         self.current_color = "#2c3e50" 
         
@@ -31,11 +33,13 @@ class EditPage(ctk.CTkFrame):
     def _get_edit_icon(self, name, size=(18, 18)):
         """Charge l'icône et génère une version blanche pour le mode sombre"""
         try:
+            # Ajustez le chemin selon votre arborescence
             base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             icon_path = os.path.join(base_path, "assets", "edit", f"{name}.png")
             
             if os.path.exists(icon_path):
                 img_light = Image.open(icon_path).convert("RGBA")
+                # Création automatique de la version blanche pour le mode sombre
                 r, g, b, a = img_light.split()
                 img_dark = Image.merge("RGBA", (r.point(lambda _: 255), g.point(lambda _: 255), b.point(lambda _: 255), a))
                 return ctk.CTkImage(light_image=img_light, dark_image=img_dark, size=size)
@@ -71,7 +75,7 @@ class EditPage(ctk.CTkFrame):
         self.color_btn = ctk.CTkButton(container, text="", width=24, height=24, fg_color=self.current_color, command=self._choose_color, corner_radius=12, border_width=1, border_color="gray")
         self.color_btn.pack(side="left", padx=5)
 
-        # --- ZONE CENTRALE ---
+        # --- ZONE CENTRALE (Scrollable) ---
         self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=("#ebebeb", "#1a1a1a"), corner_radius=0)
         self.scroll_canvas.grid(row=1, column=0, sticky="nsew")
         
@@ -82,7 +86,7 @@ class EditPage(ctk.CTkFrame):
         self.status_bar = ctk.CTkFrame(self, height=35, fg_color=("#dbdbdb", "#252525"), corner_radius=0)
         self.status_bar.grid(row=2, column=0, sticky="ew")
 
-        # Navigation Pages
+        # Navigation (Gauche)
         nav_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
         nav_cnt.pack(side="left", padx=20)
         ctk.CTkButton(nav_cnt, text="<", width=30, command=lambda: self._navigate(-1)).pack(side="left", padx=2)
@@ -90,7 +94,7 @@ class EditPage(ctk.CTkFrame):
         self.page_label.pack(side="left", padx=10)
         ctk.CTkButton(nav_cnt, text=">", width=30, command=lambda: self._navigate(1)).pack(side="left", padx=2)
 
-        # Zoom
+        # Zoom (Droite)
         zoom_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
         zoom_cnt.pack(side="right", padx=20)
         ctk.CTkButton(zoom_cnt, text="-", width=30, command=lambda: self._change_zoom(-0.1)).pack(side="left")
@@ -116,7 +120,7 @@ class EditPage(ctk.CTkFrame):
     def _add_sep(self, parent):
         ctk.CTkFrame(parent, width=1, height=25, fg_color="gray").pack(side="left", padx=10)
 
-    # --- NAVIGATION & ZOOM ---
+    # --- LOGIQUE ZOOM & NAVIGATION ---
     def set_tool(self, mode):
         self.tool_mode = mode
         for m, btn in self.tool_btns.items():
@@ -141,7 +145,7 @@ class EditPage(ctk.CTkFrame):
         ratio = self.zoom_level / old_zoom
         self._show_page()
         
-        # Mise à l'échelle de tous les objets (toutes pages)
+        # Redimensionnement de tous les objets tracés
         for p_idx in self.pages_objects:
             for item_id in self.pages_objects[p_idx]:
                 self.canvas.scale(item_id, 0, 0, ratio, ratio)
@@ -166,7 +170,7 @@ class EditPage(ctk.CTkFrame):
         self.canvas.tag_lower("pdf_bg")
         self.page_label.configure(text=f"Page {self.current_page_idx + 1} / {len(self.pdf_doc)}")
 
-    # --- ÉVÉNEMENTS CANVAS ---
+    # --- ÉVÉNEMENTS SOURIS (MODIFIÉS POUR FLUIDITÉ) ---
     def _on_click(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         self.canvas.focus_set()
@@ -189,17 +193,27 @@ class EditPage(ctk.CTkFrame):
             self.last_x, self.last_y = cx, cy
 
     def _on_drag(self, event):
+        if self._drag_lock: return
+        
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
+        
         if self.tool_mode == "select" and self.drag_data["item"]:
+            self._drag_lock = True
             dx, dy = cx - self.drag_data["x"], cy - self.drag_data["y"]
             self.canvas.move(self.drag_data["item"], dx, dy)
             self.drag_data["x"], self.drag_data["y"] = cx, cy
+            self.update_idletasks() # Force le rendu immédiat
+            self.after(2, self._reset_drag_lock) # Relâche après 2ms
+            
         elif self.tool_mode == "draw":
             line = self.canvas.create_line(self.last_x, self.last_y, cx, cy, 
                                           fill=self.current_color, width=2, capstyle="round", 
                                           tags=("editable", "draw_line"))
             self._register_object(line)
             self.last_x, self.last_y = cx, cy
+
+    def _reset_drag_lock(self):
+        self._drag_lock = False
 
     def _on_release(self, event):
         self.drag_data["item"] = None
@@ -248,7 +262,6 @@ class EditPage(ctk.CTkFrame):
             self.selected_item = None
 
     def _update_font_settings(self, s): self.current_font_size = int(s)
-    
     def _choose_color(self):
         c = colorchooser.askcolor(color=self.current_color)[1]
         if c: 
@@ -264,5 +277,4 @@ class EditPage(ctk.CTkFrame):
             self._show_page()
 
     def save_changes(self):
-        # Pour l'instant, affiche juste une confirmation dans la console
-        print("Exportation des modifications en cours...")
+        print("Exportation des modifications...")
