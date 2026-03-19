@@ -36,13 +36,13 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          # Create entry point script
+          # Création du script d'entrée
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Simplified PyInstaller command (removed --version-file to avoid the error)
+          # Correction du chemin de l'icône : app_icon.ico au lieu de logo.ico
           python -m PyInstaller --noconfirm --windowed `
             --name "BulkFolder" `
-            --icon="src/assets/logo.ico" `
+            --icon="src/assets/app_icon.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
@@ -54,6 +54,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
+          # Note: Vérifiez que installer_script.iss utilise aussi src\assets\app_icon.ico
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
       - name: Create GitHub Release
@@ -63,8 +64,7 @@ jobs:
           name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Release Notes - v${{ steps.get_version.outputs.VERSION }}
-            - Automated build via GitHub Actions.
-            - Windows Installer included.
+            - Fix: Corrected icon path and build entry point.
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
