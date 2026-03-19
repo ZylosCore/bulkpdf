@@ -34,14 +34,22 @@ jobs:
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
       - name: Build EXE with PyInstaller
+        shell: pwsh
         run: |
           # Création du point d'entrée
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Utilisation de src/assets/app_icon.ico (nom réel dans votre dossier)
+          # Vérification de l'existence de l'icône (pour éviter le crash)
+          if (Test-Path "src/assets/logo.ico") {
+              $iconPath = "src/assets/logo.ico"
+          } else {
+              Write-Host "ATTENTION: logo.ico non trouvé, vérifiez le nom du fichier dans src/assets/"
+              # Optionnel: utiliser une icône par défaut ou arrêter le build
+          }
+
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkFolder" `
-            --icon="src/assets/app_icon.ico" `
+            --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `

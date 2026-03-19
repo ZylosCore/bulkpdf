@@ -12,8 +12,8 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup
-; Mise à jour vers le nom de fichier correct
-SetupIconFile=src\assets\app_icon.ico
+; Chemin relatif vers l'icône
+SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
