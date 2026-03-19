@@ -13,7 +13,7 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup
-; Ligne 18 corrigée : l'icône est logo.ico dans votre dossier assets
+; Ligne 18 : Chemin corrigé vers l'icône existante
 SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
@@ -27,7 +27,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; On récupère tout ce que PyInstaller a généré dans le dossier 'dist'
+; On récupère l'exécutable et les dépendances dans le dossier 'dist' créé par PyInstaller
 Source: "dist\BulkFolder\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\BulkFolder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

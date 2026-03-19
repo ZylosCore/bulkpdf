@@ -36,10 +36,10 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          # Création du point d'entrée qui importe votre interface
+          # Création du point d'entrée qui lance l'interface graphique
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Lancement de PyInstaller avec les bons chemins
+          # Compilation PyInstaller avec l'icône logo.ico
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `
@@ -53,7 +53,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-          # Appel du compilateur Inno Setup avec la version dynamique
+          # Compilation de l'installeur final (.exe d'installation)
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
       - name: Create GitHub Release
@@ -63,7 +63,7 @@ jobs:
           name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Release v${{ steps.get_version.outputs.VERSION }}
-            Version stable générée automatiquement.
+            - Génération automatique de l'installeur Windows.
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
