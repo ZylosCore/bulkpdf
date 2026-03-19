@@ -1,4 +1,3 @@
-; Script Inno Setup pour BulkFolder
 #define MyAppName "BulkFolder"
 #define MyAppPublisher "Zyloscore"
 #define MyAppExeName "BulkFolder.exe"
@@ -13,8 +12,8 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup
-; Ligne 18 : Chemin corrigé vers l'icône existante
-SetupIconFile=src\assets\logo.ico
+; Mise à jour vers le nom de fichier correct
+SetupIconFile=src\assets\app_icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -27,7 +26,6 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; On récupère l'exécutable et les dépendances dans le dossier 'dist' créé par PyInstaller
 Source: "dist\BulkFolder\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\BulkFolder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
