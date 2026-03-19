@@ -1,66 +1,32 @@
 import customtkinter as ctk
-from PIL import Image
-import os
+from .views.merge_page import MergePage
+from .views.compress_page import CompressPage
+from .views.protect_page import ProtectPage
+from .views.unlock_page import UnlockPage
+from .views.extract_page import ExtractPage
+from .views.settings_page import SettingsPage
+from .views.edit_page import EditPage # <--- Importation
 
-class NavigationView(ctk.CTkFrame):
-    def __init__(self, master, current_page_callback, **kwargs):
-        super().__init__(master, fg_color="#1a1a2e", width=220, **kwargs)
-        self.current_page_callback = current_page_callback
+class Navigation:
+    def __init__(self, container):
+        self.container = container
+        self.pages = {}
         
-        # Le secret de BulkFolder : Garder une référence forte dans un dictionnaire
-        self.icons = {}
-        assets_dir = r"C:\Users\khaba\Desktop\bulk pdf\bulkpdf\src\assets"
-
-        # --- CHARGEMENT DU LOGO ---
-        logo_path = os.path.join(assets_dir, "logo.png")
-        if os.path.exists(logo_path):
-            try:
-                img_pil = Image.open(logo_path).convert("RGBA")
-                self.icons["logo"] = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(45, 45))
-                
-                self.logo_label = ctk.CTkLabel(
-                    self, 
-                    text="  BULK PDF", 
-                    image=self.icons["logo"],
-                    compound="left",
-                    font=("Segoe UI", 22, "bold"),
-                    text_color="#8a55d1"
-                )
-                self.logo_label.pack(pady=35, padx=20, anchor="w")
-            except Exception as e:
-                print(f"Erreur Logo: {e}")
+        # Initialisation
+        self.pages["merge"] = MergePage(self.container)
+        self.pages["compress"] = CompressPage(self.container)
+        self.pages["protect"] = ProtectPage(self.container)
+        self.pages["unlock"] = UnlockPage(self.container)
+        self.pages["extract"] = ExtractPage(self.container)
+        self.pages["settings"] = SettingsPage(self.container)
+        self.pages["edit"] = EditPage(self.container) # <--- Ajout au dictionnaire
         
-        # --- MENU ---
-        # On définit les boutons comme dans ton projet fonctionnel
-        menu_items = [
-            ("Merge PDF", "merge", "merge.png"),
-            ("Compress", "compress", "compress.png"),
-            ("Settings", "settings", "settings.png")
-        ]
+        for page in self.pages.values():
+            page.pack_forget()
 
-        for text, page, icon_name in menu_items:
-            icon_path = os.path.join(assets_dir, "icons", icon_name)
-            current_icon = None
-            
-            if os.path.exists(icon_path):
-                try:
-                    p_img = Image.open(icon_path).convert("RGBA")
-                    self.icons[page] = ctk.CTkImage(light_image=p_img, dark_image=p_img, size=(20, 20))
-                    current_icon = self.icons[page]
-                except:
-                    pass
-            
-            btn = ctk.CTkButton(
-                self, 
-                text=text, 
-                image=current_icon,
-                fg_color="transparent",
-                text_color="white",
-                anchor="w",
-                height=45,
-                hover_color="#2d2d44",
-                compound="left",
-                command=lambda p=page: self.current_page_callback(p)
-            )
-            btn.pack(fill="x", padx=10, pady=2)
-
+    def show_page(self, page_id):
+        for id, page in self.pages.items():
+            if id == page_id:
+                page.pack(fill="both", expand=True)
+            else:
+                page.pack_forget()
