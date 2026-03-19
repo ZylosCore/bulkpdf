@@ -36,28 +36,18 @@ jobs:
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # Création du point d'entrée qui ajoute 'src' au chemin Python
-          $run_content = @'
-          import sys
-          import os
-          # Ajoute le dossier 'src' au chemin de recherche
-          base_path = os.path.dirname(__file__)
-          sys.path.insert(0, os.path.join(base_path, 'src'))
+          # Création d'un script de lancement simple
+          echo "from bulkfolder.ui.main import main; main()" > run.py
           
-          from bulkfolder.ui.main import main
-          if __name__ == "__main__":
-              main()
-          '@
-          $run_content | Out-File -FilePath run.py -Encoding utf8
-          
-          # Compilation avec PyInstaller
-          # On s'assure que src/assets/logo.ico est bien ciblé
+          # On lance PyInstaller en lui disant explicitement où est le code (--paths src)
+          # et en collectant tout le contenu de bulkfolder
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
+            --collect-all "bulkfolder" `
             --collect-all "customtkinter" `
             run.py
 
