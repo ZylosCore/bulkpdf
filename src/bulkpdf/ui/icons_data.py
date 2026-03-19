@@ -1,22 +1,46 @@
-import io
-import base64
+import os
+import sys
 from PIL import Image
 import customtkinter as ctk
 
-# Données des icônes (Base64) - Plus besoin de fichiers PNG externes !
-# J'ai inclus des versions compressées pour le script
-LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAACXBIWXMAAAsTAAALEwEAmpwYAAADfElEQVR4nO2Xz2sTQRSAX8SDePCgB6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6uIePCoF6v6At8A6YIuGAAAAABJRU5ErkJggg=="
+def get_resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, fonctionne pour dev et pour PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        # On remonte de 3 niveaux depuis ce fichier pour arriver à la racine 'src'
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    return os.path.join(base_path, relative_path)
 
 def get_icon(name, size=(20, 20)):
-    try:
-        if name == "logo":
-            data = LOGO_B64
-        else:
-            # Pour l'instant on utilise le logo par défaut si l'icône manque
-            data = LOGO_B64
-        
-        img_data = base64.b64decode(data)
-        pil_img = Image.open(io.BytesIO(img_data)).convert("RGBA")
-        return ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=size)
-    except:
+    """
+    Charge une icône depuis src/assets/icons/name.png
+    """
+    # Mapping des noms vers les fichiers réels
+    icon_map = {
+        "merge": "assets/icons/merge.png",
+        "compress": "assets/icons/compress.png",
+        "protect": "assets/icons/protect.png",
+        "unlock": "assets/icons/unlock.png",
+        "image": "assets/icons/image.png",
+        "settings": "assets/icons/settings.png",
+        "logo": "assets/logo.png"
+    }
+    
+    relative_path = icon_map.get(name)
+    if not relative_path:
+        return None
+
+    full_path = get_resource_path(relative_path)
+    
+    if os.path.exists(full_path):
+        try:
+            img = Image.open(full_path)
+            return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+        except Exception as e:
+            print(f"Erreur lors de la lecture du fichier {full_path}: {e}")
+            return None
+    else:
+        print(f"Fichier icon introuvable: {full_path}")
         return None
