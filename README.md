@@ -67,7 +67,7 @@ BulkPDF nécessite **Python 3.10 ou supérieur**.
 
 1. **Cloner le dépôt** :
 ```bash
-git clone [https://github.com/Ashraf-Khabar/bulkpdf.git](https://github.com/Ashraf-Khabar/bulkpdf.git)
+git clone https://github.com/ZylosCore/bulkpdf
 cd bulkpdf
 ```
 Créer un environnement virtuel :
