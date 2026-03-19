@@ -125,7 +125,7 @@ class EditPage(ctk.CTkFrame):
         self.tool_mode = mode
         for m, btn in self.tool_btns.items():
             btn.configure(fg_color=("#bbbbbb", "#555555") if m == mode else "transparent")
-        self.canvas.config(cursor="xterm" if mode == "text" else "pencil" if mode == "draw" else "arrow")
+        self.canvas.config(cursor="xterm" if mode == "text" else "pencil" if mode == "draw" else "arrow") # type: ignore
 
     def _navigate(self, delta):
         if not self.pdf_doc: return
@@ -162,7 +162,7 @@ class EditPage(ctk.CTkFrame):
         if not self.pdf_doc: return
         page = self.pdf_doc[self.current_page_idx]
         pix = page.get_pixmap(matrix=fitz.Matrix(self.zoom_level, self.zoom_level))
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples) # type: ignore
         self.tk_img = ImageTk.PhotoImage(img)
         self.canvas.config(width=pix.width, height=pix.height)
         self.canvas.delete("pdf_bg") 
@@ -221,10 +221,10 @@ class EditPage(ctk.CTkFrame):
     def _on_double_click(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         item = self.canvas.find_closest(cx, cy)
-        if "text_obj" in self.canvas.gettags(item):
+        if "text_obj" in self.canvas.gettags(item): # type: ignore
             existing_text = self.canvas.itemcget(item, "text")
-            coords = self.canvas.coords(item)
-            self.canvas.delete(item)
+            coords = self.canvas.coords(item) # type: ignore
+            self.canvas.delete(item) # type: ignore
             self._create_text_input(coords[0], coords[1], existing_text)
 
     # --- TEXTE & REGISTRE ---
@@ -238,13 +238,13 @@ class EditPage(ctk.CTkFrame):
     def _finalize_text(self):
         if not self.active_entry: return
         txt = self.active_entry.get()
-        pos = self.canvas.coords(self.active_window)
+        pos = self.canvas.coords(self.active_window) # type: ignore
         if txt.strip():
             text_id = self.canvas.create_text(pos[0], pos[1], text=txt, fill=self.current_color, anchor="nw",
                                              font=("Arial", int(self.current_font_size * self.zoom_level)), 
                                              tags=("editable", "text_obj"))
             self._register_object(text_id)
-        self.canvas.delete(self.active_window)
+        self.canvas.delete(self.active_window) # type: ignore
         self.active_entry = None
         self.active_window = None
 
@@ -277,4 +277,70 @@ class EditPage(ctk.CTkFrame):
             self._show_page()
 
     def save_changes(self):
-        print("Exportation des modifications...")
+        if not self.pdf_doc:
+            return
+
+        # 1. Demander où enregistrer le fichier
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF Files", "*.pdf")],
+            title="Enregistrer le PDF modifié"
+        )
+        
+        if not save_path:
+            return
+
+        try:
+            # 2. Parcourir chaque page du document original
+            for page_idx in range(len(self.pdf_doc)):
+                page = self.pdf_doc[page_idx]
+                
+                # Vérifier si on a des objets sur cette page
+                if page_idx in self.pages_objects:
+                    for item_id in self.pages_objects[page_idx]:
+                        tags = self.canvas.gettags(item_id)
+                        coords = self.canvas.coords(item_id)
+                        
+                        # Conversion : Coordonnées Canvas -> Coordonnées PDF réelles
+                        # On divise par le zoom actuel pour retrouver l'échelle 1:1
+                        pdf_coords = [c / self.zoom_level for c in coords]
+
+                        # CAS A : C'est un texte
+                        if "text_obj" in tags:
+                            text_content = self.canvas.itemcget(item_id, "text")
+                            color_hex = self.canvas.itemcget(item_id, "fill")
+                            # Convertir hex (#RRGGBB) en tuple RGB (0-1) pour fitz
+                            rgb = self._hex_to_rgb(color_hex)
+                            
+                            # Insérer le texte (on ajuste un peu le y car fitz utilise la ligne de base)
+                            page.insert_text(
+                                (pdf_coords[0], pdf_coords[1] + (self.current_font_size / 0.8)), 
+                                text_content,
+                                fontsize=self.current_font_size,
+                                color=rgb
+                            )
+
+                        # CAS B : C'est un dessin (ligne)
+                        elif "draw_line" in tags:
+                            color_hex = self.canvas.itemcget(item_id, "fill")
+                            rgb = self._hex_to_rgb(color_hex)
+                            
+                            # fitz.Point attend des paires de coordonnées
+                            points = []
+                            for i in range(0, len(pdf_coords), 2):
+                                points.append(fitz.Point(pdf_coords[i], pdf_coords[i+1]))
+                            
+                            # Dessiner la ligne
+                            page.draw_polyline(points, color=rgb, width=2)
+
+            # 3. Enregistrer le nouveau document
+            self.pdf_doc.save(save_path)
+            print(f"Succès : PDF enregistré sous {save_path}")
+            
+        except Exception as e:
+            print(f"Erreur lors de la sauvegarde : {e}")
+
+    def _hex_to_rgb(self, hex_color):
+        """Convertit #RRGGBB en tuple (R, G, B) entre 0 et 1"""
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) / 255.0 for i in (0, 2, 4))
