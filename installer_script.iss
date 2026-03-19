@@ -12,7 +12,7 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup
-; Chemin relatif vers l'icône
+; Vérifiez que le chemin est correct par rapport à la racine du dépôt
 SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
