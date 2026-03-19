@@ -36,19 +36,11 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-<<<<<<< HEAD
           # Création du script de lancement pointant vers le package bulkfolder
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
           # Compilation PyInstaller (Correction du chemin de l'icône)
           python -m PyInstaller --noconfirm --onedir --windowed `
-=======
-          # Création du script d'entrée
-          echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
-          
-          # Correction du chemin de l'icône : app_icon.ico au lieu de logo.ico
-          python -m PyInstaller --noconfirm --windowed `
->>>>>>> 607466c2818dd87fd3282d97d0bbf2910c6db57d
             --name "BulkFolder" `
             --icon="src/assets/app_icon.ico" `
             --add-data="src/assets;assets" `
@@ -61,11 +53,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-<<<<<<< HEAD
           # Compilation de l'installeur avec la version détectée
-=======
-          # Note: Vérifiez que installer_script.iss utilise aussi src\assets\app_icon.ico
->>>>>>> 607466c2818dd87fd3282d97d0bbf2910c6db57d
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
       - name: Create GitHub Release
@@ -74,13 +62,8 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           body: |
-<<<<<<< HEAD
             ## Release v${{ steps.get_version.outputs.VERSION }}
             - Génération automatique de l'installeur Windows.
-=======
-            ## Release Notes - v${{ steps.get_version.outputs.VERSION }}
-            - Fix: Corrected icon path and build entry point.
->>>>>>> 607466c2818dd87fd3282d97d0bbf2910c6db57d
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
