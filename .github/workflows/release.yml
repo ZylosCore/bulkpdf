@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  # ÉTAPE 1 : Analyse de la qualité du code
+  # STEP 1: Code Quality Analysis
   sonar-scan:
     runs-on: ubuntu-latest
     steps:
@@ -22,13 +22,15 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@v3.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.BULK_FOLDER_SCAN }}
+          SONAR_TOKEN: ${{ secrets.BULK_PDF_SCAN }}
         with:
           args: >
+            -Dsonar.projectKey=votre_organisation_votre_projet
+            -Dsonar.organization=votre_organisation
             -Dsonar.cpd.exclusions=src/bulkfolder/ui/views/**,src/bulkfolder/ui/**
             -Dsonar.coverage.exclusions=**/*
 
-  # ÉTAPE 2 : Build de l'exécutable et de l'installeur
+  # STEP 2: Build Executable and Installer
   build:
     needs: sonar-scan
     runs-on: windows-latest
@@ -50,19 +52,18 @@ jobs:
         id: get_version
         shell: powershell
         run: |
-          # Lit la version directement dans votre project_info.xml
           [xml]$project = Get-Content "project_info.xml"
           $version = $project.project.version
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          echo "Version détectée : $version"
+          Write-Host "Detected Version: $version"
 
       - name: Build EXE with PyInstaller
         run: |
-          # Création du script de lancement dynamique
+          # Create entry point script
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Compilation PyInstaller
-          # --uac-admin aide à éviter les blocages SmartScreen en déclarant les droits admin
+          # Compile with PyInstaller
+          # Using --uac-admin to help with SmartScreen reputation
           python -m PyInstaller --noconfirm --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `
@@ -74,10 +75,9 @@ jobs:
             --uac-admin `
             run.py
 
-      - name: Build Installer with Inno Setup
+      - name: Build Windows Installer (Inno Setup)
         shell: pwsh
         run: |
-          # Utilise le compilateur Inno Setup pré-installé sur l'image GitHub Windows
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
@@ -87,10 +87,10 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           body: |
-            ## Nouveautés de la version ${{ steps.get_version.outputs.VERSION }}
-            - Build automatique via GitHub Actions.
-            - Installeur Windows inclus pour éviter les alertes de sécurité.
-          # Télécharge l'installeur généré dans le dossier Output par Inno Setup
+            ## Release Notes - v${{ steps.get_version.outputs.VERSION }}
+            - Automated build via GitHub Actions.
+            - Windows Installer included to improve security compatibility.
+            - Version dynamically pulled from `project_info.xml`.
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
