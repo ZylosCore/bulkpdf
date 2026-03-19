@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import fitz
-from PIL import Image, ImageTk, ImageOps
+from PIL import Image, ImageTk
 from tkinter import Canvas, filedialog, colorchooser
 import os
 
@@ -13,10 +13,14 @@ class EditPage(ctk.CTkFrame):
         self.current_page_idx = 0
         self.zoom_level = 1.3
         
+        # Stockage des objets par page {page_num: [item_ids]}
+        self.pages_objects = {}
+        
         # État des outils
         self.tool_mode = "select"
         self.selected_item = None
         self.active_entry = None
+        self.active_window = None
         self.drag_data = {"x": 0, "y": 0, "item": None}
         self.current_font_size = 14
         self.current_color = "#2c3e50" 
@@ -27,27 +31,18 @@ class EditPage(ctk.CTkFrame):
     def _get_edit_icon(self, name, size=(18, 18)):
         """Charge l'icône et génère une version blanche pour le mode sombre"""
         try:
-            # Ajustez le chemin selon votre structure de dossier
+            # Note : Ajustez ce chemin si vos icônes ne s'affichent pas
             base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
             icon_path = os.path.join(base_path, "assets", "edit", f"{name}.png")
             
             if os.path.exists(icon_path):
                 img_light = Image.open(icon_path).convert("RGBA")
-                
-                # Création de la version sombre (inversion de luminosité ou passage en blanc)
+                # Création de la version blanche (dark mode)
                 r, g, b, a = img_light.split()
-                img_dark = Image.merge("RGBA", (
-                    r.point(lambda _: 255), 
-                    g.point(lambda _: 255), 
-                    b.point(lambda _: 255), 
-                    a
-                ))
-                
+                img_dark = Image.merge("RGBA", (r.point(lambda _: 255), g.point(lambda _: 255), b.point(lambda _: 255), a))
                 return ctk.CTkImage(light_image=img_light, dark_image=img_dark, size=size)
             return None
-        except Exception as e:
-            print(f"Erreur icône {name}: {e}")
-            return None
+        except: return None
 
     def _setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
@@ -61,20 +56,16 @@ class EditPage(ctk.CTkFrame):
         container = ctk.CTkFrame(self.toolbar, fg_color="transparent")
         container.pack(side="left", padx=10, fill="y")
 
-        # Fichier
         self._create_btn(container, "open", self._open_file_dialog)
         self._create_btn(container, "save", self.save_changes, is_accent=True)
         self._add_sep(container)
 
-        # Outils
         self.tool_btns = {}
         for icon, mode in [("cursor", "select"), ("text", "text"), ("draw", "draw")]:
             btn = self._create_btn(container, icon, lambda m=mode: self.set_tool(m))
             self.tool_btns[mode] = btn
         
         self._add_sep(container)
-
-        # Format
         self.size_menu = ctk.CTkComboBox(container, values=["12", "14", "18", "24", "32"], width=65, height=28, command=self._update_font_settings)
         self.size_menu.set("14")
         self.size_menu.pack(side="left", padx=5)
@@ -101,22 +92,12 @@ class EditPage(ctk.CTkFrame):
         self.page_label.pack(side="left", padx=10)
         ctk.CTkButton(nav_cnt, text=">", width=30, command=lambda: self._navigate(1)).pack(side="left", padx=2)
 
-        zoom_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
-        zoom_cnt.pack(side="right", padx=20)
-        
-        ctk.CTkButton(zoom_cnt, text="-", width=30, command=lambda: self._change_zoom(-0.1)).pack(side="left")
-        self.zoom_label = ctk.CTkLabel(zoom_cnt, text="130%", width=50)
-        self.zoom_label.pack(side="left")
-        ctk.CTkButton(zoom_cnt, text="+", width=30, command=lambda: self._change_zoom(0.1)).pack(side="left")
-
     def _setup_bindings(self):
         self.canvas.bind("<Button-1>", self._on_click)
         self.canvas.bind("<B1-Motion>", self._on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self._on_release)
+        self.canvas.bind("<ButtonRelease-1>", self._on_release) # <-- La fonction manquante est ajoutée plus bas
         self.canvas.bind("<Double-Button-1>", self._on_double_click)
         self.master.bind("<Delete>", self._delete_selected)
-        self.master.bind("<Control-plus>", lambda e: self._change_zoom(0.1))
-        self.master.bind("<Control-minus>", lambda e: self._change_zoom(-0.1))
 
     def _create_btn(self, parent, icon, cmd, is_accent=False):
         img = self._get_edit_icon(icon)
@@ -129,7 +110,7 @@ class EditPage(ctk.CTkFrame):
     def _add_sep(self, parent):
         ctk.CTkFrame(parent, width=1, height=25, fg_color="gray").pack(side="left", padx=10)
 
-    # --- LOGIQUE ---
+    # --- LOGIQUE NAVIGATION ---
     def set_tool(self, mode):
         self.tool_mode = mode
         for m, btn in self.tool_btns.items():
@@ -138,15 +119,17 @@ class EditPage(ctk.CTkFrame):
 
     def _navigate(self, delta):
         if not self.pdf_doc: return
+        self._toggle_page_objects(self.current_page_idx, False) # Cache l'ancienne page
         new_idx = self.current_page_idx + delta
         if 0 <= new_idx < len(self.pdf_doc):
             self.current_page_idx = new_idx
             self._show_page()
+            self._toggle_page_objects(self.current_page_idx, True) # Affiche la nouvelle
 
-    def _change_zoom(self, delta):
-        self.zoom_level = max(0.5, min(4.0, self.zoom_level + delta))
-        self.zoom_label.configure(text=f"{int(self.zoom_level*100)}%")
-        self._show_page()
+    def _toggle_page_objects(self, page_idx, visible):
+        state = "normal" if visible else "hidden"
+        for item_id in self.pages_objects.get(page_idx, []):
+            self.canvas.itemconfigure(item_id, state=state)
 
     def _show_page(self):
         if not self.pdf_doc: return
@@ -161,80 +144,98 @@ class EditPage(ctk.CTkFrame):
         self.canvas.tag_lower("pdf_bg")
         self.page_label.configure(text=f"Page {self.current_page_idx + 1} / {len(self.pdf_doc)}")
 
+    # --- GESTION ÉVÉNEMENTS ---
     def _on_click(self, event):
+        cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         self.canvas.focus_set()
+        
         if self.active_entry: self._finalize_text()
         
         if self.tool_mode == "select":
-            # On cherche l'objet sous le curseur
-            items = self.canvas.find_overlapping(event.x-2, event.y-2, event.x+2, event.y+2)
+            # Trouve les objets proches du clic (marge de 2px)
+            items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
             editable_items = [i for i in items if "editable" in self.canvas.gettags(i)]
             
             if editable_items:
-                item = editable_items[-1] # Le plus haut
+                item = editable_items[-1]
                 self.selected_item = item
-                self.drag_data = {"x": event.x, "y": event.y, "item": item}
-                # Feedback visuel : on ne change que l'item sélectionné
-                self.canvas.itemconfig("editable", stipple="") # Reset si besoin
+                self.drag_data = {"x": cx, "y": cy, "item": item}
             else:
                 self.selected_item = None
 
         elif self.tool_mode == "text":
-            self._create_text_input(event.x, event.y)
+            self._create_text_input(cx, cy)
         
         elif self.tool_mode == "draw":
-            self.last_x, self.last_y = event.x, event.y
+            self.last_x, self.last_y = cx, cy
 
     def _on_drag(self, event):
+        cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         if self.tool_mode == "select" and self.drag_data["item"]:
-            dx, dy = event.x - self.drag_data["x"], event.y - self.drag_data["y"]
+            dx, dy = cx - self.drag_data["x"], cy - self.drag_data["y"]
             self.canvas.move(self.drag_data["item"], dx, dy)
-            self.drag_data["x"], self.drag_data["y"] = event.x, event.y
-            self.canvas.update_idletasks() # Fluidité
+            self.drag_data["x"], self.drag_data["y"] = cx, cy
             
         elif self.tool_mode == "draw":
-            self.canvas.create_line(self.last_x, self.last_y, event.x, event.y, 
-                                   fill=self.current_color, width=2, capstyle="round", 
-                                   tags=("editable", "draw_line"))
-            self.last_x, self.last_y = event.x, event.y
+            line = self.canvas.create_line(self.last_x, self.last_y, cx, cy, 
+                                          fill=self.current_color, width=2, capstyle="round", 
+                                          tags=("editable", "draw_line"))
+            self._register_object(line)
+            self.last_x, self.last_y = cx, cy
 
     def _on_release(self, event):
+        """Réinitialise les données de drag"""
         self.drag_data["item"] = None
 
     def _on_double_click(self, event):
-        item = self.canvas.find_closest(event.x, event.y)
+        cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
+        item = self.canvas.find_closest(cx, cy)
         if "text_obj" in self.canvas.gettags(item):
             existing_text = self.canvas.itemcget(item, "text")
             coords = self.canvas.coords(item)
             self.canvas.delete(item)
             self._create_text_input(coords[0], coords[1], existing_text)
 
+    # --- OUTILS TEXTE ---
     def _create_text_input(self, x, y, initial=""):
         self.active_entry = ctk.CTkEntry(self.canvas, font=("Arial", int(self.current_font_size * self.zoom_level)))
         self.active_entry.insert(0, initial)
-        self.active_entry.place(x=x, y=y)
+        # On utilise create_window pour que l'Entry suive le scroll du Canvas
+        self.active_window = self.canvas.create_window(x, y, window=self.active_entry, anchor="nw")
         self.active_entry.focus_set()
         self.active_entry.bind("<Return>", lambda e: self._finalize_text())
 
     def _finalize_text(self):
         if not self.active_entry: return
         txt = self.active_entry.get()
+        # On récupère les coordonnées de la fenêtre avant de la supprimer
+        pos = self.canvas.coords(self.active_window)
+        
         if txt.strip():
-            # On applique la couleur actuelle à cet objet précis
-            self.canvas.create_text(self.active_entry.winfo_x(), self.active_entry.winfo_y(), 
-                                   text=txt, fill=self.current_color, anchor="nw",
-                                   font=("Arial", int(self.current_font_size * self.zoom_level)), 
-                                   tags=("editable", "text_obj"))
-        self.active_entry.destroy()
+            text_id = self.canvas.create_text(pos[0], pos[1], text=txt, fill=self.current_color, anchor="nw",
+                                             font=("Arial", int(self.current_font_size * self.zoom_level)), 
+                                             tags=("editable", "text_obj"))
+            self._register_object(text_id)
+            
+        self.canvas.delete(self.active_window)
         self.active_entry = None
+        self.active_window = None
+
+    def _register_object(self, item_id):
+        if self.current_page_idx not in self.pages_objects:
+            self.pages_objects[self.current_page_idx] = []
+        self.pages_objects[self.current_page_idx].append(item_id)
 
     def _delete_selected(self, event):
         if self.selected_item:
+            # Nettoyage dans le dictionnaire de pages
+            for p in self.pages_objects:
+                if self.selected_item in self.pages_objects[p]:
+                    self.pages_objects[p].remove(self.selected_item)
             self.canvas.delete(self.selected_item)
             self.selected_item = None
 
-    def _update_font_settings(self, s): 
-        self.current_font_size = int(s)
+    def _update_font_settings(self, s): self.current_font_size = int(s)
     
     def _choose_color(self):
         c = colorchooser.askcolor(color=self.current_color)[1]
@@ -246,10 +247,9 @@ class EditPage(ctk.CTkFrame):
         path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if path:
             self.pdf_doc = fitz.open(path)
+            self.pages_objects = {}
             self.current_page_idx = 0
             self._show_page()
 
     def save_changes(self):
-        # Logique de sauvegarde
-        print("Sauvegarde demandée...")
         pass
