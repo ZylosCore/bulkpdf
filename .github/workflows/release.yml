@@ -1,4 +1,4 @@
-name: Build and Release BulkFolder
+name: Build and Release BulkPDF
 
 on:
   push:
@@ -24,35 +24,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller customtkinter pillow matplotlib
 
-      - name: Get version
+      - name: Get version from XML
         id: get_version
         shell: powershell
         run: |
           [xml]$project = Get-Content "project_info.xml"
-          echo "VERSION=$($project.project.version)" >> $env:GITHUB_OUTPUT
+          $version = $project.project.version
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # On crée un lanceur qui force le chemin vers 'src'
+          # Création du lanceur pour BulkPDF
+          # On suppose que ton code est dans src/bulkpdf/ui/main.py
           $launcher = @"
           import sys, os
           sys.path.append(os.path.join(os.getcwd(), 'src'))
-          from bulkfolder.ui.main import main
+          try:
+              from bulkpdf.ui.main import main
+          except ImportError:
+              # Repli si le dossier s'appelle différemment
+              from bulkfolder.ui.main import main
           if __name__ == '__main__':
               main()
           "@
-          $launcher | Out-File -FilePath "run.py" -Encoding utf8
+          $launcher | Out-File -FilePath "run_bulkpdf.py" -Encoding utf8
 
-          # Compilation en UN SEUL FICHIER (--onefile) pour éviter l'erreur 4551
+          # Compilation en UN SEUL FICHIER pour éviter les blocages de sécurité
           python -m PyInstaller --noconfirm --onefile --windowed `
-            --name "BulkFolder" `
+            --name "BulkPDF" `
             --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
             --collect-all "customtkinter" `
-            run.py
+            run_bulkpdf.py
 
       - name: Build Windows Installer (Inno Setup)
         shell: pwsh
@@ -64,6 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

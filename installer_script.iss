@@ -1,25 +1,25 @@
-#define MyAppName "BulkFolder"
+#define MyAppName "BulkPDF"
 #define MyAppPublisher "Zyloscore"
-#define MyAppExeName "BulkFolder.exe"
+#define MyAppExeName "BulkPDF.exe"
 
 [Setup]
-AppId={{8E4C2A15-3B1A-4D2E-9C1F-7B8A9C0D1E2F}
+AppId={{9F5D3B2C-1A4E-4F3D-BD6A-2C1E4F5A6B7C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=Output
-OutputBaseFilename=BulkFolder_Setup
+OutputBaseFilename=BulkPDF_Setup
 SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-; Demander les droits admin pour bypasser la politique 4551
+; Droits admin pour éviter l'erreur 4551 de Windows
 PrivilegesRequired=admin
 
 [Files]
-; On ne prend que le fichier EXE unique généré dans 'dist'
+; On récupère le fichier unique généré par PyInstaller
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
