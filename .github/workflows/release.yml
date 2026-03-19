@@ -2,8 +2,7 @@ name: Build and Release BulkFolder
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -25,29 +24,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller customtkinter pillow matplotlib
 
-      - name: Get version from XML
+      - name: Get version
         id: get_version
         shell: powershell
         run: |
           [xml]$project = Get-Content "project_info.xml"
-          $version = $project.project.version
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "VERSION=$($project.project.version)" >> $env:GITHUB_OUTPUT
 
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # Création d'un script de lancement simple
-          echo "from bulkfolder.ui.main import main; main()" > run.py
-          
-          # On lance PyInstaller en lui disant explicitement où est le code (--paths src)
-          # et en collectant tout le contenu de bulkfolder
-          python -m PyInstaller --noconfirm --onedir --windowed `
+          # On crée un lanceur qui force le chemin vers 'src'
+          $launcher = @"
+          import sys, os
+          sys.path.append(os.path.join(os.getcwd(), 'src'))
+          from bulkfolder.ui.main import main
+          if __name__ == '__main__':
+              main()
+          "@
+          $launcher | Out-File -FilePath "run.py" -Encoding utf8
+
+          # Compilation en UN SEUL FICHIER (--onefile) pour éviter l'erreur 4551
+          python -m PyInstaller --noconfirm --onefile --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
-            --collect-all "bulkfolder" `
             --collect-all "customtkinter" `
             run.py
 
@@ -57,11 +60,10 @@ jobs:
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
-          name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
