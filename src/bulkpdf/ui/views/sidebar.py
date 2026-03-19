@@ -4,22 +4,19 @@ from ..icons_data import get_icon
 
 class Sidebar(ctk.CTkFrame):
     def __init__(self, master, selection_callback, **kwargs):
-        # Sidebar légèrement plus large pour le grand logo
         super().__init__(master, width=260, corner_radius=0, fg_color=SIDEBAR_COLOR, **kwargs)
         self.selection_callback = selection_callback
         
-        # LOGO MAXIMUM SIZE (100x100)
-        logo_img = get_icon("logo", size=(100, 100))
-        self.logo_label = ctk.CTkLabel(self, text="BULK PDF", 
-                                     image=logo_img,
-                                     compound="top",
-                                     font=(FONT_FAMILY, 24, "bold"), 
+        logo_img = get_icon("logo", size=(80, 80))
+        self.logo_label = ctk.CTkLabel(self, text="BULK PDF", image=logo_img,
+                                     compound="top", font=(FONT_FAMILY, 22, "bold"), 
                                      text_color=ACCENT_PURPLE)
-        self.logo_label.pack(pady=(40, 30), padx=10)
+        self.logo_label.pack(pady=(30, 25), padx=20)
 
         self.buttons = {}
         menu_items = [
             ("merge", "Fusionner", "merge"),
+            ("edit", "Éditeur PDF", "edit"),      # <--- Nouveau bouton
             ("compress", "Compresser", "compress"),
             ("protect", "Protéger", "protect"),
             ("unlock", "Déverrouiller", "unlock"),
@@ -31,7 +28,6 @@ class Sidebar(ctk.CTkFrame):
             self.buttons[id] = self._create_nav_btn(label, id, icon_name)
 
     def _create_nav_btn(self, text, page_id, icon_name):
-        # Icônes de menu un peu plus grandes (24x24)
         icon = get_icon(icon_name, size=(24, 24))
         btn = ctk.CTkButton(self, text=f"  {text}", image=icon, compound="left",
                            height=50, anchor="w", corner_radius=12,

@@ -1,63 +1,54 @@
 import customtkinter as ctk
-from .theme import BG_COLOR
 from .views.sidebar import Sidebar
 from .views.topbar import Topbar
-from .views.pdf_operations import PDFOperationsView
+from .views.merge_page import MergePage
 from .views.compress_page import CompressPage
 from .views.protect_page import ProtectPage
 from .views.unlock_page import UnlockPage
 from .views.extract_page import ExtractPage
 from .views.settings_page import SettingsPage
+from .views.edit_page import EditPage  # <-- AJOUT
 
 class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("BulkPDF Pro - 4K Edition")
-        self.geometry("1300x700")
-        self.configure(fg_color=BG_COLOR)
 
-        # Layout Configuration
+        self.title("BulkPDF - Professional PDF Suite")
+        self.geometry("1100x700")
+
+        # Layout principal
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
 
-        # Main Content Container
-        self.container = ctk.CTkFrame(self, fg_color="transparent")
-        self.container.grid(row=1, column=1, sticky="nsew", padx=30, pady=20)
+        # Sidebar
+        self.sidebar = Sidebar(self, selection_callback=self.show_page)
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        # Initialize Pages
+        # Conteneur de pages
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        self.main_container.grid_columnconfigure(0, weight=1)
+        self.main_container.grid_rowconfigure(0, weight=1)
+
+        # Initialisation des pages
         self.pages = {
-            "merge": PDFOperationsView(self.container),
-            "compress": CompressPage(self.container),
-            "protect": ProtectPage(self.container),
-            "unlock": UnlockPage(self.container),
-            "extract": ExtractPage(self.container),
-            "settings": SettingsPage(self.container)
+            "merge": MergePage(self.main_container),
+            "edit": EditPage(self.main_container),      # <-- AJOUT (Régle le KeyError)
+            "compress": CompressPage(self.main_container),
+            "protect": ProtectPage(self.main_container),
+            "unlock": UnlockPage(self.main_container),
+            "extract": ExtractPage(self.main_container),
+            "settings": SettingsPage(self.main_container)
         }
 
-        # UI Components
-        self.topbar = Topbar(self)
-        self.topbar.grid(row=0, column=1, sticky="ew")
-
-        self.sidebar = Sidebar(self, self.show_page)
-        self.sidebar.grid(row=0, column=0, rowspan=2, sticky="nsew")
-        
-        # Default Page
+        # Afficher la page par défaut
         self.show_page("merge")
 
     def show_page(self, page_id):
-        """Displays page with a simple alpha-fade simulation"""
-        if hasattr(self, 'pages'):
-            # Hide all pages
-            for p in self.pages.values():
-                p.pack_forget()
-            
-            # Show selected page
-            target_page = self.pages[page_id]
-            target_page.pack(fill="both", expand=True)
-            
-            # Small animation effect: flash the background slightly 
-            # to simulate a professional transition
-            original_color = target_page.cget("fg_color")
-            target_page.configure(fg_color="#2d2f3b")
-            self.after(50, lambda: target_page.configure(fg_color="transparent"))
-
+        # Cacher toutes les pages
+        for page in self.pages.values():
+            page.grid_forget()
+        
+        # Afficher la page demandée
+        target_page = self.pages[page_id]
+        target_page.grid(row=0, column=0, sticky="nsew")
