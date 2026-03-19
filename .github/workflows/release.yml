@@ -33,20 +33,25 @@ jobs:
           $version = $project.project.version
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Debug - List Files
-        shell: pwsh
-        run: |
-          Write-Host "Vérification de la présence de l'icône :"
-          Get-ChildItem -Path "src/assets" -Recurse
-          if (Test-Path "src/assets/logo.ico") { Write-Host "✅ logo.ico TROUVÉ" } else { Write-Host "❌ logo.ico INTROUVABLE" }
-
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # Création du point d'entrée
-          echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
+          # Création du point d'entrée qui ajoute 'src' au chemin Python
+          $run_content = @'
+          import sys
+          import os
+          # Ajoute le dossier 'src' au chemin de recherche
+          base_path = os.path.dirname(__file__)
+          sys.path.insert(0, os.path.join(base_path, 'src'))
           
-          # On utilise le chemin relatif direct
+          from bulkfolder.ui.main import main
+          if __name__ == "__main__":
+              main()
+          '@
+          $run_content | Out-File -FilePath run.py -Encoding utf8
+          
+          # Compilation avec PyInstaller
+          # On s'assure que src/assets/logo.ico est bien ciblé
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `

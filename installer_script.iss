@@ -12,7 +12,6 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup
-; Vérifiez que le chemin est correct par rapport à la racine du dépôt
 SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
@@ -26,6 +25,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+; IMPORTANT : PyInstaller crée un dossier 'BulkFolder' dans 'dist'
 Source: "dist\BulkFolder\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\BulkFolder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
