@@ -39,15 +39,13 @@ jobs:
           # Create entry point script
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Compile with PyInstaller
-          # --uac-admin helps bypass some SmartScreen restrictions by requesting admin rights
+          # Simplified PyInstaller command (removed --version-file to avoid the error)
           python -m PyInstaller --noconfirm --windowed `
             --name "BulkFolder" `
             --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
-            --version-file="version_info.txt" `
             --collect-all "customtkinter" `
             --uac-admin `
             run.py
@@ -66,7 +64,7 @@ jobs:
           body: |
             ## Release Notes - v${{ steps.get_version.outputs.VERSION }}
             - Automated build via GitHub Actions.
-            - Windows Installer included to improve security compatibility and bypass SmartScreen.
+            - Windows Installer included.
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
