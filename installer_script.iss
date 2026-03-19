@@ -11,6 +11,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
+; Forces admin privileges to improve reputation with Windows SmartScreen
 PrivilegesRequired=admin
 OutputDir=Output
 OutputBaseFilename=BulkFolder_Setup_v{#MyAppVersion}
