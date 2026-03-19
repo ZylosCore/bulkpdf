@@ -17,7 +17,7 @@ def trim_and_make_ico():
     et génère un ICO haute définition.
     """
     png_path = current_dir / "assets" / "logo.png"
-    ico_path = current_dir / "assets" / "app_icon.ico"
+    ico_path = current_dir / "assets" / "logo.ico"
     
     if not png_path.exists():
         return
@@ -56,7 +56,7 @@ def main():
     ctk.set_appearance_mode("dark")
     app = BulkPDFApp()
     
-    ico_path = current_dir / "assets" / "app_icon.ico"
+    ico_path = current_dir / "assets" / "logo.ico"
     png_path = current_dir / "assets" / "logo.png"
     
     if ico_path.exists():
