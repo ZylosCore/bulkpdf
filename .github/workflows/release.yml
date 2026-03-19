@@ -22,7 +22,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller customtkinter pillow matplotlib
+          pip install -r requirements.txt
+          pip install pyinstaller
 
       - name: Get version from XML
         id: get_version
@@ -35,22 +36,9 @@ jobs:
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # Création du lanceur pour BulkPDF
-          # On suppose que ton code est dans src/bulkpdf/ui/main.py
-          $launcher = @"
-          import sys, os
-          sys.path.append(os.path.join(os.getcwd(), 'src'))
-          try:
-              from bulkpdf.ui.main import main
-          except ImportError:
-              # Repli si le dossier s'appelle différemment
-              from bulkfolder.ui.main import main
-          if __name__ == '__main__':
-              main()
-          "@
-          $launcher | Out-File -FilePath "run_bulkpdf.py" -Encoding utf8
-
-          # Compilation en UN SEUL FICHIER pour éviter les blocages de sécurité
+          # Compilation en un seul fichier (.exe)
+          # On inclut les assets et le fichier projet
+          # --collect-all customtkinter est crucial pour l'interface graphique
           python -m PyInstaller --noconfirm --onefile --windowed `
             --name "BulkPDF" `
             --icon="src/assets/logo.ico" `
@@ -58,7 +46,7 @@ jobs:
             --add-data="project_info.xml;." `
             --paths="src" `
             --collect-all "customtkinter" `
-            run_bulkpdf.py
+            src/main.py
 
       - name: Build Windows Installer (Inno Setup)
         shell: pwsh

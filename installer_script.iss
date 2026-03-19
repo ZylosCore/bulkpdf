@@ -15,11 +15,11 @@ SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-; Droits admin pour éviter l'erreur 4551 de Windows
+; ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 
 [Files]
-; On récupère le fichier unique généré par PyInstaller
+; On récupère le fichier unique généré par PyInstaller dans le dossier dist
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
