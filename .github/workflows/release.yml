@@ -32,17 +32,17 @@ jobs:
           [xml]$project = Get-Content "project_info.xml"
           $version = $project.project.version
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Detected Version: $version"
+          Write-Host "Version détectée : $version"
 
       - name: Build EXE with PyInstaller
         run: |
-          # Création du script de lancement pointant vers le package bulkfolder
+          # Création du point d'entrée qui importe votre interface
           echo "import sys, os; sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src')); from bulkfolder.ui.main import main; main()" > run.py
           
-          # Compilation PyInstaller (Correction du chemin de l'icône)
+          # Lancement de PyInstaller avec les bons chemins
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkFolder" `
-            --icon="src/assets/app_icon.ico" `
+            --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
             --add-data="project_info.xml;." `
             --paths="src" `
@@ -53,7 +53,7 @@ jobs:
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-          # Compilation de l'installeur avec la version détectée
+          # Appel du compilateur Inno Setup avec la version dynamique
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
       - name: Create GitHub Release
@@ -63,7 +63,7 @@ jobs:
           name: BulkFolder v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Release v${{ steps.get_version.outputs.VERSION }}
-            - Génération automatique de l'installeur Windows.
+            Version stable générée automatiquement.
           files: Output/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
