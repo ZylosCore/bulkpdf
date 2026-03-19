@@ -1,34 +1,35 @@
+; Script Inno Setup pour BulkFolder
 #define MyAppName "BulkFolder"
 #define MyAppPublisher "Zyloscore"
 #define MyAppExeName "BulkFolder.exe"
-#define MyAppId "{{A1B2C3D4-E5F6-4789-9ABC-DEF123456789}}"
 
 [Setup]
-AppId={#MyAppId}
+AppId={{8E4C2A15-3B1A-4D2E-9C1F-7B8A9C0D1E2F}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-; Forces admin privileges to improve reputation with Windows SmartScreen
-PrivilegesRequired=admin
 OutputDir=Output
-OutputBaseFilename=BulkFolder_Setup_v{#MyAppVersion}
-SetupIconFile=src\assets\logo.ico
+OutputBaseFilename=BulkFolder_Setup
+; Correction ici : utilisation du bon nom de fichier icône
+SetupIconFile=src\assets\app_icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+; On prend l'exécutable généré par PyInstaller dans le dossier dist
+Source: "dist\BulkFolder\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\BulkFolder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "project_info.xml"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
