@@ -21,7 +21,11 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 
-; Métadonnées pour aider Windows SmartScreen
+; --- AJOUTS POUR LA SIGNATURE ---
+SignTool=MsSign $f
+SignedUninstaller=yes
+; --------------------------------
+
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription="BulkPDF - Outil de gestion PDF"
 VersionInfoVersion={#MyAppVersion}
@@ -33,9 +37,7 @@ PrivilegesRequired=admin
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-; L'exécutable principal généré par PyInstaller
 Source: "dist\{#MyAppName}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; TOUS les autres fichiers et sous-dossiers générés par le mode --onedir (DLLs, assets, etc.)
 Source: "dist\{#MyAppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
