@@ -54,7 +54,9 @@ jobs:
       - name: Generate SHA256 Hashes
         shell: pwsh
         run: |
-          Get-ChildItem -Path Output/*.exe | Get-FileHash -Algorithm SHA256 | Out-File -FilePath Output/SHA256SUMS.txt
+          if (Test-Path "Output") {
+            Get-ChildItem -Path Output/*.exe | Get-FileHash -Algorithm SHA256 | Out-File -FilePath Output/SHA256SUMS.txt
+          }
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -63,9 +65,9 @@ jobs:
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Vérification de sécurité
-            Pour vérifier l'intégrité de l'installeur, comparez le hash SHA256 dans le fichier `SHA256SUMS.txt`.
+            Pour vérifier que le fichier est sain, comparez le hash SHA256 dans `SHA256SUMS.txt`.
             
-            **Note importante :** Windows SmartScreen peut afficher une alerte car l'application est nouvelle et n'a pas encore de signature payante. Cliquez sur "Plus d'infos" puis "Exécuter quand même".
+            *Note : Windows peut bloquer l'installation (Écran bleu). Cliquez sur "Plus d'infos" puis "Exécuter quand même".*
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
