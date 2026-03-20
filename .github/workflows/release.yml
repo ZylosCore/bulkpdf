@@ -45,34 +45,11 @@ jobs:
             --collect-all "customtkinter" `
             src/main.py
 
-      # DECODAGE DU CERTIFICAT
-      - name: Import Certificate
-        shell: pwsh
-        run: |
-          if ("${{ secrets.CERT_BASE64 }}" -eq "") { Write-Error "Secret CERT_BASE64 est vide !"; exit 1 }
-          $certBytes = [System.Convert]::FromBase64String("${{ secrets.CERT_BASE64 }}")
-          [System.IO.File]::WriteAllBytes("${{ github.workspace }}\cert.pfx", $certBytes)
-
-      # SIGNATURE DE L'EXE
-      - name: Sign PyInstaller EXE
-        shell: pwsh
-        env:
-          CERT_PASS: ${{ secrets.CERT_PASSWORD }}
-        run: |
-          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -First 1).FullName
-          & $signtool sign /f "${{ github.workspace }}\cert.pfx" /p "$env:CERT_PASS" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\BulkPDF\BulkPDF.exe"
-
-      # CONSTRUCTION ET SIGNATURE DE L'INSTALLATEUR
       - name: Build Windows Installer (Inno Setup)
         shell: pwsh
-        env:
-          CERT_PASS: ${{ secrets.CERT_PASSWORD }}
         run: |
-          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -First 1).FullName
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-          # On utilise des variables d'environnement pour éviter les problèmes de caractères spéciaux dans le mot de passe
-          $signtool_cmd = "`"$signtool`" sign /f `"${{ github.workspace }}\cert.pfx`" /p `"$env:CERT_PASS`" /tr http://timestamp.digicert.com /td sha256 /fd sha256 `$f"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "/SMsSign=$signtool_cmd" "installer_script.iss"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
       - name: Generate SHA256 Hashes
         shell: pwsh
@@ -87,8 +64,11 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
-            ## Sécurité
-            L'application est signée numériquement. Comparez le hash SHA256 dans `SHA256SUMS.txt`.
+            ## Installation
+            1. Téléchargez `BulkPDF_Setup.exe`.
+            2. Si Windows affiche une alerte SmartScreen :
+               - Cliquez sur **"Informations complémentaires"**.
+               - Cliquez sur **"Exécuter quand même"**.
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
