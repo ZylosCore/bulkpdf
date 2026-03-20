@@ -21,10 +21,9 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 
-; --- AJOUTS POUR LA SIGNATURE ---
+; --- CONFIGURATION SIGNATURE ---
 SignTool=MsSign $f
 SignedUninstaller=yes
-; --------------------------------
 
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription="BulkPDF - Outil de gestion PDF"
