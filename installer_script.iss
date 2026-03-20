@@ -1,12 +1,13 @@
-; --- Définitions globales ---
+; --- Définitions des variables globales ---
 #define MyAppName "BulkPDF"
 #define MyAppPublisher "Zyloscore"
 #define MyAppExeName "BulkPDF.exe"
-#define MyAppVersion "1.0.0" 
+; Il est crucial d'incrémenter cette version à chaque build pour la réputation
+#define MyAppVersion "1.0.1" 
 #define MyURL "https://github.com/zyloscore/bulkpdf"
 
 [Setup]
-; ID unique pour l'application
+; ID unique - Ne pas changer pour que Windows reconnaisse l'application au fil des mises à jour
 AppId={{9F5D3B2C-1A4E-4F3D-BD6A-2C1E4F5A6B7C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -15,24 +16,27 @@ AppPublisherURL={#MyURL}
 AppSupportURL={#MyURL}
 AppUpdatesURL={#MyURL}
 
-; Configuration de l'installation
+; Configuration de l'installeur
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=Output
-OutputBaseFilename=BulkPDF_Setup
+OutputBaseFilename=BulkPDF_Setup_{#MyAppVersion}
 SetupIconFile=src\assets\logo.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 
-; --- IMPORTANT POUR LA RÉPUTATION ---
-; Indiquer clairement le nom de l'éditeur dans les propriétés du fichier généré
+; --- CONFIGURATION DE RÉPUTATION (CRITIQUE) ---
+; Ces champs remplissent les propriétés "Détails" du .exe que Windows scanne
 VersionInfoCompany={#MyAppPublisher}
-VersionInfoDescription="Outil de gestion et traitement de fichiers PDF en lot"
+VersionInfoDescription="BulkPDF - Outil Open Source de traitement PDF"
 VersionInfoVersion={#MyAppVersion}
-VersionInfoCopyright="Copyright (C) 2024 {#MyAppPublisher}"
+VersionInfoProductName={#MyAppName}
+VersionInfoCopyright="Copyright (C) 2026 {#MyAppPublisher}"
+; Manifeste de compatibilité pour prouver à Windows que l'app est moderne
+SignTool=none
 
-; Privilèges requis (admin permet d'écrire dans Program Files)
+; Privilèges requis
 PrivilegesRequired=admin
 
 [Languages]
@@ -41,7 +45,7 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 [Files]
 ; Source de l'exécutable généré par PyInstaller
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Si vous avez d'autres dépendances non incluses dans l'EXE, ajoutez-les ici
+; Note : Assurez-vous que le logo.ico est bien présent dans src/assets/
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

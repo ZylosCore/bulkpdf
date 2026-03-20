@@ -36,8 +36,6 @@ jobs:
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # --add-data="source;destination"
-          # On inclut tout le dossier assets et le fichier XML
           python -m PyInstaller --noconfirm --onefile --windowed `
             --name "BulkPDF" `
             --icon="src/assets/logo.ico" `
@@ -53,11 +51,24 @@ jobs:
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
+      # Étape ajoutée pour générer les sommes de contrôle (Sécurité)
+      - name: Generate SHA256 Hashes
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path Output/*.exe | Get-FileHash -Algorithm SHA256 | Out-File -FilePath Output/SHA256SUMS.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
-          files: Output/*.exe
+          body: |
+            ## Vérification de sécurité
+            Pour vérifier l'intégrité de l'installeur, comparez le hash SHA256 fourni dans le fichier `SHA256SUMS.txt`.
+            
+            *Note : Windows peut afficher un message de protection au premier lancement car l'application n'est pas encore signée.*
+          files: |
+            Output/*.exe
+            Output/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
