@@ -51,7 +51,6 @@ jobs:
           $ver = "${{ steps.get_version.outputs.VERSION }}"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
 
-      # Étape ajoutée pour générer les sommes de contrôle (Sécurité)
       - name: Generate SHA256 Hashes
         shell: pwsh
         run: |
@@ -64,9 +63,9 @@ jobs:
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Vérification de sécurité
-            Pour vérifier l'intégrité de l'installeur, comparez le hash SHA256 fourni dans le fichier `SHA256SUMS.txt`.
+            Pour vérifier l'intégrité de l'installeur, comparez le hash SHA256 dans le fichier `SHA256SUMS.txt`.
             
-            *Note : Windows peut afficher un message de protection au premier lancement car l'application n'est pas encore signée.*
+            **Note importante :** Windows SmartScreen peut afficher une alerte car l'application est nouvelle et n'a pas encore de signature payante. Cliquez sur "Plus d'infos" puis "Exécuter quand même".
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt

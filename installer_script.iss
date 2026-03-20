@@ -2,12 +2,14 @@
 #define MyAppName "BulkPDF"
 #define MyAppPublisher "Zyloscore"
 #define MyAppExeName "BulkPDF.exe"
-; Il est crucial d'incrémenter cette version à chaque build pour la réputation
-#define MyAppVersion "1.0.1" 
+; MyAppVersion est passé dynamiquement via la ligne de commande dans GitHub Actions
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
 #define MyURL "https://github.com/zyloscore/bulkpdf"
 
 [Setup]
-; ID unique - Ne pas changer pour que Windows reconnaisse l'application au fil des mises à jour
+; ID unique - Ne pas changer pour conserver la continuité des versions
 AppId={{9F5D3B2C-1A4E-4F3D-BD6A-2C1E4F5A6B7C}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -26,26 +28,22 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 
-; --- CONFIGURATION DE RÉPUTATION (CRITIQUE) ---
-; Ces champs remplissent les propriétés "Détails" du .exe que Windows scanne
+; --- CONFIGURATION DE RÉPUTATION ---
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoDescription="BulkPDF - Outil Open Source de traitement PDF"
 VersionInfoVersion={#MyAppVersion}
 VersionInfoProductName={#MyAppName}
-VersionInfoCopyright="Copyright (C) 2026 {#MyAppPublisher}"
-; Manifeste de compatibilité pour prouver à Windows que l'app est moderne
-SignTool=none
+VersionInfoCopyright="Copyright (C) 2024 {#MyAppPublisher}"
 
-; Privilèges requis
+; Privilèges requis pour installer dans Program Files
 PrivilegesRequired=admin
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-; Source de l'exécutable généré par PyInstaller
+; Source de l'exécutable généré par PyInstaller (dossier dist)
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-; Note : Assurez-vous que le logo.ico est bien présent dans src/assets/
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
