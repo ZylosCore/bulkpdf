@@ -36,7 +36,6 @@ jobs:
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          # MODIFICATION ICI : Remplacement de --onefile par --onedir
           python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkPDF" `
             --icon="src/assets/logo.ico" `
@@ -46,11 +45,26 @@ jobs:
             --collect-all "customtkinter" `
             src/main.py
 
+      # --- NOUVELLE ÉTAPE : IMPORT DU CERTIFICAT ---
+      - name: Import Certificate
+        shell: pwsh
+        run: |
+          $certBytes = [System.Convert]::FromBase64String("${{ secrets.CERT_BASE64 }}")
+          [System.IO.File]::WriteAllBytes("${{ github.workspace }}\cert.pfx", $certBytes)
+
+      # --- NOUVELLE ÉTAPE : SIGNATURE DE L'EXE PYINSTALLER ---
+      - name: Sign PyInstaller EXE
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f "${{ github.workspace }}\cert.pfx" /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\BulkPDF\BulkPDF.exe"
+
+      # --- MODIFICATION : ISCC AVEC PARAMÈTRE DE SIGNATURE ---
       - name: Build Windows Installer (Inno Setup)
         shell: pwsh
         run: |
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "installer_script.iss"
+          $signtool_cmd = 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe sign /f "${{ github.workspace }}\cert.pfx" /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $f'
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "/SMsSign=$signtool_cmd" "installer_script.iss"
 
       - name: Generate SHA256 Hashes
         shell: pwsh
@@ -66,9 +80,8 @@ jobs:
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Vérification de sécurité
-            Pour vérifier que le fichier est sain, comparez le hash SHA256 dans `SHA256SUMS.txt`.
-            
-            *Note : Windows peut bloquer l'installation (Écran bleu SmartScreen). Cliquez sur "Informations complémentaires" puis "Exécuter quand même".*
+            Ce fichier est signé numériquement par Zyloscore.
+            Comparez le hash SHA256 dans `SHA256SUMS.txt` pour plus de sécurité.
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
