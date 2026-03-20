@@ -1,5 +1,9 @@
+import os
+import sys
+from pathlib import Path
 import customtkinter as ctk
-from .i18n import t  # IMPORTATION DE LA LANGUE
+from PIL import Image, ImageTk
+from .i18n import t  
 from .views.sidebar import Sidebar
 from .views.topbar import Topbar
 from .views.merge_page import MergePage
@@ -10,12 +14,42 @@ from .views.extract_page import ExtractPage
 from .views.settings_page import SettingsPage
 from .views.edit_page import EditPage
 
+def get_resource_path(filename):
+    """ Fonction infaillible pour trouver les assets (.py et .exe) """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, "assets", filename)
+        
+    current_dir = Path(__file__).resolve().parent
+    for _ in range(5):
+        p = current_dir / "assets" / filename
+        if p.exists(): return str(p)
+        current_dir = current_dir.parent
+    return filename
+
 class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title(t("app_title")) # TITRE TRADUIT
+        self.title(t("app_title"))
         self.geometry("1100x700")
+        
+        # --- APPLICATION DE L'ICÔNE ---
+        ico_path = get_resource_path("logo.ico")
+        png_path = get_resource_path("logo.png")
+        
+        # 1. On applique le vrai fichier .ico pour Windows
+        if os.path.exists(ico_path):
+            try:
+                self.iconbitmap(ico_path)
+            except: pass
+            
+        # 2. Secours très puissant : on injecte l'icône via PIL pour la barre des tâches
+        if os.path.exists(png_path):
+            try:
+                img = ImageTk.PhotoImage(Image.open(png_path))
+                # Le paramètre 'True' force cette icône comme icône par défaut de la fenêtre
+                self.iconphoto(True, img)
+            except: pass
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
