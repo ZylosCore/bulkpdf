@@ -33,8 +33,10 @@ PrivilegesRequired=admin
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-; L'exécutable généré par PyInstaller
-Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; L'exécutable principal généré par PyInstaller
+Source: "dist\{#MyAppName}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; TOUS les autres fichiers et sous-dossiers générés par le mode --onedir (DLLs, assets, etc.)
+Source: "dist\{#MyAppName}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

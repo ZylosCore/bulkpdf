@@ -36,7 +36,8 @@ jobs:
       - name: Build EXE with PyInstaller
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --onefile --windowed `
+          # MODIFICATION ICI : Remplacement de --onefile par --onedir
+          python -m PyInstaller --noconfirm --onedir --windowed `
             --name "BulkPDF" `
             --icon="src/assets/logo.ico" `
             --add-data="src/assets;assets" `
@@ -67,7 +68,7 @@ jobs:
             ## Vérification de sécurité
             Pour vérifier que le fichier est sain, comparez le hash SHA256 dans `SHA256SUMS.txt`.
             
-            *Note : Windows peut bloquer l'installation (Écran bleu). Cliquez sur "Plus d'infos" puis "Exécuter quand même".*
+            *Note : Windows peut bloquer l'installation (Écran bleu SmartScreen). Cliquez sur "Informations complémentaires" puis "Exécuter quand même".*
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
