@@ -8,12 +8,12 @@ import io
 import tkinter.font as tkFont
 from datetime import datetime
 from pathlib import Path
+from ..i18n import t  # IMPORTATION DE LA LANGUE
 
 def resource_path(relative_path):
     try:
         base_path = Path(sys._MEIPASS)
     except Exception:
-        # Remonte au dossier racine du projet
         base_path = Path(__file__).parent.parent.parent.parent
     return base_path / relative_path
 
@@ -21,20 +21,17 @@ class EditPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         
-        # --- CONFIGURATION DES CHEMINS ---
-        self.app_data_dir = Path(os.getenv('APPDATA')) / "BulkPDF"
+        self.app_data_dir = Path(os.getenv('APPDATA', '.')) / "BulkPDF"
         self.sig_dir = self.app_data_dir / "signatures"
         self.sig_dir.mkdir(parents=True, exist_ok=True) 
         self.signature_img_path = self.sig_dir / "user_signature.png"
         
-        # --- ETAT DU DOCUMENT ---
         self.pdf_doc = None
         self.pdf_path = None
         self.current_page_idx = 0
         self.zoom_level = 1.3
         self.pages_data = {} 
         
-        # --- ETAT DE L'INTERACTION ---
         self.tool_mode = "select"
         self.selected_items = []
         self.drag_data = {"x": 0, "y": 0, "mode": None}
@@ -42,7 +39,6 @@ class EditPage(ctk.CTkFrame):
         self.selection_rect_id = None
         self._is_finalizing = False 
         
-        # --- PARAMETRES DESSIN/TEXTE ---
         self.current_font_size = 14
         self.current_color = "#2c3e50" 
         self.last_x, self.last_y = 0, 0
@@ -57,7 +53,6 @@ class EditPage(ctk.CTkFrame):
         return int(item) if item is not None else None
 
     def _get_edit_icon(self, name, size=(18, 18)):
-        """Charge les icônes depuis les assets"""
         try:
             paths = [
                 resource_path(os.path.join("src", "assets", "edit", f"{name}.png")),
@@ -66,7 +61,6 @@ class EditPage(ctk.CTkFrame):
             for p in paths:
                 if p.exists():
                     img_light = Image.open(str(p)).convert("RGBA")
-                    # Version sombre (blanche)
                     r, g, b, a = img_light.split()
                     img_dark = Image.merge("RGBA", (r.point(lambda _: 255), g.point(lambda _: 255), b.point(lambda _: 255), a))
                     return ctk.CTkImage(light_image=img_light, dark_image=img_dark, size=size)
@@ -77,7 +71,6 @@ class EditPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # Barre d'outils
         self.toolbar = ctk.CTkFrame(self, height=45, fg_color=("#ffffff", "#2b2b2b"), corner_radius=0)
         self.toolbar.grid(row=0, column=0, sticky="ew")
         self.toolbar.grid_propagate(False)
@@ -85,21 +78,21 @@ class EditPage(ctk.CTkFrame):
         container = ctk.CTkFrame(self.toolbar, fg_color="transparent")
         container.pack(side="left", padx=10, fill="y")
 
-        self._create_btn(container, "open", "Ouvrir", self._open_file_dialog)
-        self._create_btn(container, "save", "Enregistrer", self.save_changes, is_accent=True)
+        self._create_btn(container, "open", t("btn_open"), self._open_file_dialog)
+        self._create_btn(container, "save", t("btn_save"), self.save_changes, is_accent=True)
         self._add_sep(container)
 
         self.tool_btns = {}
         tools = [("cursor", "select"), ("text", "text"), ("draw", "draw"), ("eraser", "erase"), ("protect", "signature")]
         for icon, mode in tools:
-            btn = self._create_btn(container, icon, mode, lambda m=mode: self.set_tool(m))
+            btn = self._create_btn(container, icon, "", lambda m=mode: self.set_tool(m))
             self.tool_btns[mode] = btn
         
         self._add_sep(container)
-        self._create_btn(container, "rotate", "Rotation", self._rotate_selected)
-        self._create_btn(container, "plus", "Agrandir", lambda: self._change_item_size(1.1))
-        self._create_btn(container, "minus", "Réduire", lambda: self._change_item_size(0.9))
-        self._create_btn(container, "trash", "Supprimer", self._delete_selected)
+        self._create_btn(container, "rotate", t("btn_rotate"), self._rotate_selected)
+        self._create_btn(container, "plus", t("btn_enlarge"), lambda: self._change_item_size(1.1))
+        self._create_btn(container, "minus", t("btn_shrink"), lambda: self._change_item_size(0.9))
+        self._create_btn(container, "trash", t("btn_delete"), self._delete_selected)
         
         self._add_sep(container)
         self.size_menu = ctk.CTkComboBox(container, values=["12", "14", "18", "24", "32", "48"], width=65, height=28, command=self._update_font_settings)
@@ -108,20 +101,18 @@ class EditPage(ctk.CTkFrame):
         self.color_btn = ctk.CTkButton(container, text="", width=24, height=24, fg_color=self.current_color, command=self._choose_color, corner_radius=12)
         self.color_btn.pack(side="left", padx=5)
 
-        # Zone d'affichage (Canvas)
         self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=("#ebebeb", "#1a1a1a"), corner_radius=0)
         self.scroll_canvas.grid(row=1, column=0, sticky="nsew")
         self.canvas = Canvas(self.scroll_canvas, bg="white", bd=0, highlightthickness=0)
         self.canvas.pack(pady=20)
 
-        # Barre de statut (Navigation / Zoom)
         self.status_bar = ctk.CTkFrame(self, height=35, fg_color=("#dbdbdb", "#252525"), corner_radius=0)
         self.status_bar.grid(row=2, column=0, sticky="ew")
         
         nav_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
         nav_cnt.pack(side="left", padx=20)
         self._create_nav_btn(nav_cnt, "left", lambda: self._navigate(-1))
-        self.page_label = ctk.CTkLabel(nav_cnt, text="Page 0 / 0", font=("Arial", 11, "bold"))
+        self.page_label = ctk.CTkLabel(nav_cnt, text=f"{t('page_lbl')} 0 / 0", font=("Arial", 11, "bold"))
         self.page_label.pack(side="left", padx=10)
         self._create_nav_btn(nav_cnt, "right", lambda: self._navigate(1))
 
@@ -132,15 +123,11 @@ class EditPage(ctk.CTkFrame):
         self.zoom_label.pack(side="left")
         self._create_nav_btn(zoom_cnt, "plus", lambda: self._change_zoom(0.1))
 
-    # --- LOGIQUE TEXTE ---
-
     def _create_text_input(self, x, y, initial_text=""):
         if self.active_entry_window: return 
-        
         entry = Entry(self.canvas, font=("Arial", int(self.current_font_size)), fg=self.current_color, bd=1, relief="flat")
         if initial_text: entry.insert(0, initial_text)
         entry.focus_set()
-        
         window_id = self.canvas.create_window(x, y, window=entry, anchor=NW)
         self.active_entry_window = window_id
         self._is_finalizing = False 
@@ -149,23 +136,19 @@ class EditPage(ctk.CTkFrame):
             if not self.canvas.find_withtag(window_id): return
             if self._is_finalizing: return
             self._is_finalizing = True
-            
             content = entry.get().strip()
             self.canvas.delete(window_id)
             self.active_entry_window = None
             if content:
-                self.canvas.create_text(x, y, text=content, font=("Arial", self.current_font_size), 
-                                      fill=self.current_color, anchor=NW, tags=("editable", "text_obj"), angle=0)
+                self.canvas.create_text(x, y, text=content, font=("Arial", self.current_font_size), fill=self.current_color, anchor=NW, tags=("editable", "text_obj"), angle=0)
             self.after(200, lambda: setattr(self, '_is_finalizing', False))
 
         entry.bind("<Return>", finalize)
         entry.bind("<FocusOut>", lambda e: self.after(100, finalize))
 
-    # --- LOGIQUE SIGNATURE ---
-
     def _add_signature(self, x, y):
         if not self.signature_img_path.exists():
-            p = filedialog.askopenfilename(title="Charger une signature (PNG)", filetypes=[("Images", "*.png *.jpg *.jpeg")])
+            p = filedialog.askopenfilename(title=t("load_sig"), filetypes=[("PNG Images", "*.png")])
             if not p: return
             Image.open(p).save(str(self.signature_img_path))
 
@@ -174,12 +157,11 @@ class EditPage(ctk.CTkFrame):
             w, h = 150, int(150 * (orig.height / orig.width))
             display_img = orig.resize((w, h), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(display_img)
-            
             item_id = self._get_id(self.canvas.create_image(x, y, image=photo, anchor=NW, tags=("editable", "signature")))
             self.image_refs[item_id] = {"photo": photo, "original": orig, "current_w": w, "current_h": h}
             self.set_tool("select")
         except Exception as e:
-            messagebox.showerror("Erreur", f"Signature : {e}")
+            messagebox.showerror(t("error"), str(e))
 
     def _refresh_image_item(self, item_id):
         if item_id not in self.image_refs: return
@@ -189,8 +171,6 @@ class EditPage(ctk.CTkFrame):
         photo = ImageTk.PhotoImage(resized)
         self.canvas.itemconfig(item_id, image=photo)
         data["photo"] = photo
-
-    # --- PERSISTENCE ZOOM / PAGES ---
 
     def _save_current_page_state(self):
         if self.pdf_doc is None: return
@@ -202,7 +182,6 @@ class EditPage(ctk.CTkFrame):
             tags = self.canvas.gettags(item_id)
             coords = self.canvas.coords(item_id)
             real_coords = [c * ratio for c in coords]
-            
             data = {"tags": tags, "coords": real_coords}
             
             if "text_obj" in tags:
@@ -234,7 +213,6 @@ class EditPage(ctk.CTkFrame):
 
         for data in self.pages_data[self.current_page_idx]:
             scaled_coords = [c * z for c in data["coords"]]
-            
             if "text_obj" in data["tags"]:
                 display_size = int(data["real_font_size"] * z)
                 self.canvas.create_text(*scaled_coords, text=data["text"], fill=data["fill"], 
@@ -251,21 +229,17 @@ class EditPage(ctk.CTkFrame):
                 item_id = self._get_id(self.canvas.create_image(scaled_coords[0], scaled_coords[1], image=photo, anchor=NW, tags=data["tags"]))
                 self.image_refs[item_id] = {"photo": photo, "original": orig, "current_w": w, "current_h": h}
 
-    # --- NAVIGATION PDF ---
-
     def _show_page(self):
         if not self.pdf_doc: return
         page = self.pdf_doc[self.current_page_idx]
         pix = page.get_pixmap(matrix=fitz.Matrix(self.zoom_level, self.zoom_level))
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        
         self.tk_img = ImageTk.PhotoImage(img)
         self.canvas.config(width=pix.width, height=pix.height)
         self.canvas.delete(ALL) 
         self.canvas.create_image(0, 0, anchor=NW, image=self.tk_img, tags="background")
-        
         self._load_page_state() 
-        self.page_label.configure(text=f"Page {self.current_page_idx + 1} / {len(self.pdf_doc)}")
+        self.page_label.configure(text=f"{t('page_lbl')} {self.current_page_idx + 1} / {len(self.pdf_doc)}")
         self.selected_items = []
 
     def _navigate(self, delta):
@@ -283,8 +257,6 @@ class EditPage(ctk.CTkFrame):
         self.zoom_label.configure(text=f"{int(self.zoom_level*100)}%")
         self._show_page()
 
-    # --- BINDINGS CANVAS ---
-
     def _setup_bindings(self):
         self.canvas.bind("<Button-1>", self._on_click)
         self.canvas.bind("<B1-Motion>", self._on_drag)
@@ -296,101 +268,70 @@ class EditPage(ctk.CTkFrame):
         if self.active_entry_window: return 
 
         if self.tool_mode == "select":
-            # Vérifie si on a cliqué SUR un élément existant (tolérance de 1px)
             items = self.canvas.find_overlapping(cx-1, cy-1, cx+1, cy+1)
             editable_clicked = [i for i in items if "editable" in self.canvas.gettags(i)]
-            
             if editable_clicked:
-                item_id = self._get_id(editable_clicked[-1]) # Prend l'élément au premier plan
-                # Si l'élément n'est pas déjà dans la sélection, on le sélectionne seul
+                item_id = self._get_id(editable_clicked[-1]) 
                 if item_id not in self.selected_items:
                     self.selected_items = [item_id]
                 self.drag_data = {"x": cx, "y": cy, "mode": "move"}
             else:
-                # Clic dans le vide : on commence un rectangle de sélection
                 self.selected_items = []
                 self.drag_data = {"x": cx, "y": cy, "mode": "select_box"}
                 if self.selection_rect_id:
                     self.canvas.delete(self.selection_rect_id)
                 self.selection_rect_id = self.canvas.create_rectangle(cx, cy, cx, cy, outline="#3498db", dash=(2, 2))
-            
             self._draw_highlights()
-            
         elif self.tool_mode == "text": self._create_text_input(cx, cy)
-        elif self.tool_mode == "draw": 
-            self.last_x, self.last_y = cx, cy # Initialiser le pinceau
+        elif self.tool_mode == "draw": self.last_x, self.last_y = cx, cy
         elif self.tool_mode == "signature": self._add_signature(cx, cy)
 
     def _on_drag(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         mode = self.drag_data.get("mode")
-        
         if self.tool_mode == "select":
             if mode == "move" and self.selected_items:
                 dx, dy = cx - self.drag_data["x"], cy - self.drag_data["y"]
-                for item in self.selected_items: 
-                    self.canvas.move(item, dx, dy)
+                for item in self.selected_items: self.canvas.move(item, dx, dy)
                 self.drag_data["x"], self.drag_data["y"] = cx, cy
                 self._draw_highlights()
-                
             elif mode == "select_box" and self.selection_rect_id:
-                # Redessine le rectangle de sélection pendant le glissement
                 self.canvas.coords(self.selection_rect_id, self.drag_data["x"], self.drag_data["y"], cx, cy)
-        
         elif self.tool_mode == "draw":
             self.canvas.create_line(self.last_x, self.last_y, cx, cy, fill=self.current_color, width=2, capstyle="round", tags=("editable", "draw_line"))
             self.last_x, self.last_y = cx, cy
-            
         elif self.tool_mode == "erase":
             for it in self.canvas.find_overlapping(cx-5, cy-5, cx+5, cy+5):
-                if "draw_line" in self.canvas.gettags(it):
-                    self.canvas.delete(it)
+                if "draw_line" in self.canvas.gettags(it): self.canvas.delete(it)
 
     def _on_release(self, event):
         if self.tool_mode == "select":
             mode = self.drag_data.get("mode")
             if mode == "select_box" and self.selection_rect_id:
                 cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-                # Calcule les vraies coordonnées du rectangle
                 x1, y1 = min(self.drag_data["x"], cx), min(self.drag_data["y"], cy)
                 x2, y2 = max(self.drag_data["x"], cx), max(self.drag_data["y"], cy)
-                
-                # Sélectionne tous les éléments "editable" dans cette zone
                 overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
                 self.selected_items = [self._get_id(i) for i in overlapping if "editable" in self.canvas.gettags(i)]
-                
                 self.canvas.delete(self.selection_rect_id)
                 self.selection_rect_id = None
-                
             self.drag_data["mode"] = None
-            
         self._draw_highlights()
 
     def _on_double_click(self, event):
         if self.active_entry_window: return
-        
         if self.tool_mode == "select":
             cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             item = self.canvas.find_closest(cx, cy)
             item_id = self._get_id(item)
-            
-            # Si on a double-cliqué sur un texte
             if item_id and "text_obj" in self.canvas.gettags(item_id):
-                # Récupérer le texte actuel et sa position
                 current_text = self.canvas.itemcget(item_id, "text")
                 coords = self.canvas.coords(item_id)
-                
-                # Mettre à jour la couleur et la taille de police courante pour correspondre
                 self.current_color = self.canvas.itemcget(item_id, "fill")
                 self.color_btn.configure(fg_color=self.current_color)
-                
-                # Supprimer l'ancien texte
                 self.canvas.delete(item_id)
-                if item_id in self.selected_items:
-                    self.selected_items.remove(item_id)
+                if item_id in self.selected_items: self.selected_items.remove(item_id)
                 self.canvas.delete("highlighter")
-                
-                # Ouvrir la zone de saisie avec le texte existant
                 self._create_text_input(coords[0], coords[1], initial_text=current_text)
 
     def _change_item_size(self, factor):
@@ -443,11 +384,9 @@ class EditPage(ctk.CTkFrame):
         for m, btn in self.tool_btns.items(): 
             btn.configure(fg_color="#44475a" if m == mode else "transparent")
 
-    # --- AUXILIAIRES UI ---
-
     def _create_btn(self, parent, icon_name, tooltip, command, is_accent=False):
         icon = self._get_edit_icon(icon_name)
-        btn = ctk.CTkButton(parent, text="", image=icon, width=32, height=32, fg_color="transparent" if not is_accent else "#6272a4", command=command)
+        btn = ctk.CTkButton(parent, text=tooltip, image=icon, width=32, height=32, fg_color="transparent" if not is_accent else "#6272a4", command=command)
         btn.pack(side="left", padx=2)
         return btn
 
@@ -471,8 +410,6 @@ class EditPage(ctk.CTkFrame):
         if c: 
             self.current_color = c
             self.color_btn.configure(fg_color=c)
-            
-            # Appliquer la nouvelle couleur aux textes/dessins actuellement sélectionnés
             for item in self.selected_items:
                 item_id = self._get_id(item)
                 tags = self.canvas.gettags(item_id)
@@ -491,48 +428,31 @@ class EditPage(ctk.CTkFrame):
     def save_changes(self):
         if not self.pdf_doc: return
         self._save_current_page_state() 
-        
         for pg_idx, items in self.pages_data.items():
             page = self.pdf_doc[pg_idx]
             for data in items:
                 coords = data["coords"]
                 if "text_obj" in data["tags"]:
-                    # --- COMPENSATION DPI ---
-                    # Tkinter affiche le texte plus grand qu'un PDF pour une même valeur.
-                    # On compense la taille en multipliant par un ratio de DPI (96/72 = ~1.33)
                     TK_TO_PDF_RATIO = 1.333
                     pdf_font_size = data["real_font_size"] * TK_TO_PDF_RATIO
-                    
                     rgb = [int(data["fill"][i:i+2], 16)/255 for i in (1, 3, 5)]
                     angle = int(data.get("angle", 0))
-                    
-                    # On ajuste légèrement l'offset Y pour aligner le texte PDF avec l'affichage écran
                     y_offset = pdf_font_size * 0.75 
-                    
-                    page.insert_text((coords[0], coords[1] + y_offset), data["text"], 
-                                     fontsize=pdf_font_size, color=rgb, rotate=angle)
-                                     
+                    page.insert_text((coords[0], coords[1] + y_offset), data["text"], fontsize=pdf_font_size, color=rgb, rotate=angle)
                 elif "draw_line" in data["tags"]:
                     rgb = [int(data["fill"][i:i+2], 16)/255 for i in (1, 3, 5)]
                     page.draw_line(fitz.Point(coords[0], coords[1]), fitz.Point(coords[2], coords[3]), color=rgb, width=2)
-                    
                 elif "signature" in data["tags"]:
                     img_buffer = io.BytesIO()
                     data["original_img"].save(img_buffer, format='PNG')
                     rect = fitz.Rect(coords[0], coords[1], coords[0] + data["real_w"], coords[1] + data["real_h"])
                     page.insert_image(rect, stream=img_buffer.getvalue())
 
-        # Nom de sauvegarde automatique
         orig_name = Path(self.pdf_path).stem if self.pdf_path else "document"
         date_str = datetime.now().strftime("%Y-%m-%d")
         default_name = f"{orig_name}_edited_{date_str}.pdf"
 
-        save_path = filedialog.asksaveasfilename(
-            initialfile=default_name,
-            defaultextension=".pdf", 
-            filetypes=[("Documents PDF", "*.pdf")]
-        )
-        
+        save_path = filedialog.asksaveasfilename(initialfile=default_name, defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
         if save_path:
             self.pdf_doc.save(save_path)
-            messagebox.showinfo("Succès", "Document enregistré avec succès !")
+            messagebox.showinfo(t("success"), t("doc_saved"))
