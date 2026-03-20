@@ -45,25 +45,26 @@ jobs:
             --collect-all "customtkinter" `
             src/main.py
 
-      # --- NOUVELLE ÉTAPE : IMPORT DU CERTIFICAT ---
       - name: Import Certificate
         shell: pwsh
         run: |
           $certBytes = [System.Convert]::FromBase64String("${{ secrets.CERT_BASE64 }}")
           [System.IO.File]::WriteAllBytes("${{ github.workspace }}\cert.pfx", $certBytes)
 
-      # --- NOUVELLE ÉTAPE : SIGNATURE DE L'EXE PYINSTALLER ---
+      # LOCALISATION DYNAMIQUE DE SIGNTOOL
       - name: Sign PyInstaller EXE
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe" sign /f "${{ github.workspace }}\cert.pfx" /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\BulkPDF\BulkPDF.exe"
+          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -First 1).FullName
+          & $signtool sign /f "${{ github.workspace }}\cert.pfx" /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "dist\BulkPDF\BulkPDF.exe"
 
-      # --- MODIFICATION : ISCC AVEC PARAMÈTRE DE SIGNATURE ---
       - name: Build Windows Installer (Inno Setup)
         shell: pwsh
         run: |
+          $signtool = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -First 1).FullName
           $ver = "${{ steps.get_version.outputs.VERSION }}"
-          $signtool_cmd = 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe sign /f "${{ github.workspace }}\cert.pfx" /p "${{ secrets.CERT_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 /fd sha256 $f'
+          # On prépare la commande de signature pour Inno Setup
+          $signtool_cmd = "$signtool sign /f `"${{ github.workspace }}\cert.pfx`" /p `"${{ secrets.CERT_PASSWORD }}`" /tr http://timestamp.digicert.com /td sha256 /fd sha256 `$f"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$ver "/SMsSign=$signtool_cmd" "installer_script.iss"
 
       - name: Generate SHA256 Hashes
@@ -80,8 +81,7 @@ jobs:
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Vérification de sécurité
-            Ce fichier est signé numériquement par Zyloscore.
-            Comparez le hash SHA256 dans `SHA256SUMS.txt` pour plus de sécurité.
+            Ce fichier est signé numériquement. Comparez le hash SHA256 dans `SHA256SUMS.txt`.
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
