@@ -64,7 +64,7 @@ class PdfEditorTab(ctk.CTkFrame):
             pwd = dialog.get_input()
             auth_ok = False
             if pwd:
-                auth_ok = self.pdf_doc.authenticate(pwd) > 0 # PyMuPDF renvoie >0 si succès
+                auth_ok = self.pdf_doc.authenticate(pwd) > 0 
             
             if not auth_ok:
                 self.pdf_doc.close()
@@ -280,6 +280,22 @@ class PdfEditorTab(ctk.CTkFrame):
                 menu = Menu(self, tearoff=0)
                 menu.add_command(label="Modifier le paragraphe", command=lambda: self._edit_paragraph(self.pdf_selection_bbox))
                 menu.tk_popup(event.x_root, event.y_root)
+
+    # --- LA FONCTION MANQUANTE RÉINTÉGRÉE ---
+    def _edit_paragraph(self, canvas_bbox):
+        if self.current_pdf_selection_rect:
+            self.canvas.delete(self.current_pdf_selection_rect); self.current_pdf_selection_rect = None
+        self.pdf_selection_bbox = None
+        
+        z = self.zoom_level
+        pdf_bbox = [c / z for c in canvas_bbox]
+        data = self._find_pdf_text_in_rect(pdf_bbox)
+        
+        if data:
+            s_bbox = [data["bbox"][0]*z, data["bbox"][1]*z, data["bbox"][2]*z, data["bbox"][3]*z]
+            self.main_page.current_color = data["color"]; self.main_page.color_btn.configure(fg_color=self.main_page.current_color)
+            self.canvas.create_rectangle(s_bbox[0]-2, s_bbox[1]-2, s_bbox[2]+2, s_bbox[3]+2, fill="white", outline="white", tags=("editable", "redaction"))
+            self._create_text_input(s_bbox[0], s_bbox[1], initial_text=data["text"], font_family=data["font_family"], real_font_size=data["font_size"], original_pdf_font=data["original_pdf_font"], box_width=(s_bbox[2]-s_bbox[0])+15, box_height=(s_bbox[3]-s_bbox[1])+15, is_multiline=True)
 
     def _on_double_click(self, event):
         if self.main_page.mode_switch.get() == "View": return
@@ -544,9 +560,11 @@ class EditPage(ctk.CTkFrame):
         self.color_btn.pack(side="left", padx=5)
         ToolTip(self.color_btn, "Changer de couleur")
 
-        # NOUVEAU SYSTÈME D'ONGLETS PERSONNALISÉ
-        self.tab_bar = ctk.CTkScrollableFrame(self, height=36, orientation="horizontal", fg_color="#2b2b2b", corner_radius=0, border_width=0, scrollbar_button_color=SCROLLBAR_COLOR, scrollbar_button_hover_color=SCROLLBAR_HOVER)
+        # NOUVEAU SYSTÈME D'ONGLETS SANS SCROLLBAR
+        # On utilise une Frame normale au lieu d'une ScrollableFrame
+        self.tab_bar = ctk.CTkFrame(self, height=36, fg_color="#2b2b2b", corner_radius=0, border_width=0)
         self.tab_bar.grid(row=1, column=0, sticky="ew")
+        self.tab_bar.grid_propagate(False) # Force la hauteur à 36px
 
         self.editor_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self.editor_container.grid(row=2, column=0, sticky="nsew")
@@ -574,13 +592,12 @@ class EditPage(ctk.CTkFrame):
             name = f"{base_name} ({counter})"
             counter += 1
         
-        # BLINDAGE CONTRE LES CRASHS PYMUPDF
         try:
             editor = PdfEditorTab(self.editor_container, p, main_page=self)
         except Exception as e:
             if "Encrypted" not in str(e):
                 messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier :\n{e}")
-            return # IMPORTANT: On ne crée pas l'onglet UI si l'ouverture échoue
+            return 
         
         tab_frame = ctk.CTkFrame(self.tab_bar, fg_color="#44475a", corner_radius=4)
         tab_frame.pack(side="left", padx=2, pady=2, fill="y")
