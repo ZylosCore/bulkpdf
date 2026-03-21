@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from ..i18n import t  # IMPORTATION DE LA LANGUE
-from ..theme import SIDEBAR_COLOR, ACCENT_PURPLE, TEXT_MAIN, FONT_FAMILY
+from ..theme import SIDEBAR_COLOR, ACCENT_BLUE, TEXT_MAIN, FONT_FAMILY
 from ..icons_data import get_icon
 
 class Sidebar(ctk.CTkFrame):
@@ -11,7 +11,7 @@ class Sidebar(ctk.CTkFrame):
         logo_img = get_icon("logo", size=(80, 80))
         self.logo_label = ctk.CTkLabel(self, text="BULK PDF", image=logo_img,
                                      compound="top", font=(FONT_FAMILY, 22, "bold"), 
-                                     text_color=ACCENT_PURPLE)
+                                     text_color=ACCENT_BLUE)
         self.logo_label.pack(pady=(30, 25), padx=20)
 
         self.buttons = {}
@@ -46,6 +46,6 @@ class Sidebar(ctk.CTkFrame):
             is_sel = (p_id == page_id)
             btn.configure(
                 fg_color=("#dcdcdc", "#343746") if is_sel else "transparent",
-                text_color=ACCENT_PURPLE if is_sel else TEXT_MAIN
+                text_color=ACCENT_BLUE if is_sel else TEXT_MAIN
             )
         self.selection_callback(page_id)

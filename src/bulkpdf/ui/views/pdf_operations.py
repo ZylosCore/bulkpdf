@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from .cards import FileCard
 from ...pdf_engine import PDFTask
-from ..theme import BG_COLOR, BORDER_COLOR, TEXT_LOW, ACCENT_PURPLE, TEXT_TITLE, FONT_FAMILY
+from ..theme import BG_COLOR, BORDER_COLOR, TEXT_LOW, ACCENT_BLUE, TEXT_TITLE, FONT_FAMILY
 
 class PDFOperationsView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -21,13 +21,13 @@ class PDFOperationsView(ctk.CTkFrame):
         self.empty_label = ctk.CTkLabel(self.scroll, text="No files selected", font=(FONT_FAMILY, 12), text_color=TEXT_LOW)
         self.empty_label.pack(pady=60)
 
-        self.progress = ctk.CTkProgressBar(self, progress_color=ACCENT_PURPLE, height=6)
+        self.progress = ctk.CTkProgressBar(self, progress_color=ACCENT_BLUE, height=6)
         # On ne pack pas la progress bar de suite pour garder l'interface propre
 
         self.action_bar = ctk.CTkFrame(self, fg_color="transparent")
         self.action_bar.pack(fill="x", pady=15)
         
-        self.add_btn = ctk.CTkButton(self.action_bar, text="+ Add Files", height=32, fg_color=ACCENT_PURPLE, command=self.browse_files)
+        self.add_btn = ctk.CTkButton(self.action_bar, text="+ Add Files", height=32, fg_color=ACCENT_BLUE, command=self.browse_files)
         self.add_btn.pack(side="left", padx=5)
 
         # BOUTON VERT : On s'assure qu'il appelle bien self.execute_task

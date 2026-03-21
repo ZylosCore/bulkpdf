@@ -38,8 +38,8 @@ class EditPage(ctk.CTkFrame):
         self.active_entry_window = None 
         self.selection_rect_id = None
         
-        self.current_pdf_selection_rect = None # Rectangle bleu pour sélection de paragraphe
-        self.pdf_selection_bbox = None # Coordonnées de la zone de paragraphe
+        self.current_pdf_selection_rect = None 
+        self.pdf_selection_bbox = None 
         
         self._is_finalizing = False 
         
@@ -47,6 +47,7 @@ class EditPage(ctk.CTkFrame):
         self.current_color = "#000000" 
         self.last_x, self.last_y = 0, 0
         self.image_refs = {} 
+        self.item_original_fonts = {} # Pour stocker la vraie police du PDF
         
         self._setup_ui()
         self._setup_bindings()
@@ -127,12 +128,11 @@ class EditPage(ctk.CTkFrame):
         self.zoom_label.pack(side="left")
         self._create_nav_btn(zoom_cnt, "plus", lambda: self._change_zoom(0.1))
 
-    # ---- AMÉLIORATION : Support d'édition Multiligne (Text) ou Monoligne (Entry) ----
-    def _create_text_input(self, x, y, initial_text="", font_family=None, font_size=None, box_width=None, box_height=None, is_multiline=False):
+    def _create_text_input(self, x, y, initial_text="", font_family=None, font_size=None, original_pdf_font=None, box_width=None, box_height=None, is_multiline=False):
         if self.active_entry_window: return 
         
         ff = font_family if font_family else "Arial"
-        fs = int(font_size) if font_size else int(self.current_font_size)
+        fs = font_size if font_size else -int(self.current_font_size * self.zoom_level) # Pixel sizing
         
         self._is_finalizing = False 
         
@@ -149,14 +149,17 @@ class EditPage(ctk.CTkFrame):
             self.canvas.delete(window_id)
             self.active_entry_window = None
             if content:
-                # Si c'est multiligne, créer un texte qui peut s'afficher sur plusieurs lignes
-                self.canvas.create_text(x, y, text=content, font=(ff, fs), fill=self.current_color, anchor=NW, tags=("editable", "text_obj"), angle=0, width=box_width if is_multiline else 0)
+                item_id = self.canvas.create_text(x, y, text=content, font=(ff, fs), fill=self.current_color, anchor=NW, tags=("editable", "text_obj"), angle=0, width=box_width if is_multiline else 0)
+                # Sauvegarder la police PDF d'origine pour l'enregistrement parfait
+                self.item_original_fonts[self._get_id(item_id)] = original_pdf_font or "helv"
+
             self.after(200, lambda: setattr(self, '_is_finalizing', False))
 
         if is_multiline:
             entry = Text(self.canvas, font=(ff, fs), fg=self.current_color, bd=0, highlightthickness=1, highlightbackground="#3498db", relief="flat", background="white", wrap="word")
             entry.insert("1.0", initial_text)
             entry.bind("<FocusOut>", lambda e: self.after(100, finalize))
+            entry.bind("<Control-Return>", finalize) 
         else:
             entry = Entry(self.canvas, font=(ff, fs), fg=self.current_color, bd=0, highlightthickness=0, relief="flat", background="white")
             if initial_text: entry.insert(0, initial_text)
@@ -213,11 +216,20 @@ class EditPage(ctk.CTkFrame):
             if "text_obj" in tags:
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
                 angle = self.canvas.itemcget(item_id, "angle")
+                
+                # Récupère la taille absolue (sans le signe négatif) et la remet à l'échelle du PDF
+                tk_size = abs(f.actual("size"))
+                real_font_size = tk_size * ratio
+                
+                # Récupère le nom original sauvegardé s'il existe
+                original_pdf_font = self.item_original_fonts.get(item_id, "helv")
+                
                 data.update({
                     "text": self.canvas.itemcget(item_id, "text"),
                     "fill": self.canvas.itemcget(item_id, "fill"),
                     "font_family": f.actual("family"),
-                    "real_font_size": abs(f.actual("size")) * ratio,
+                    "original_pdf_font": original_pdf_font,
+                    "real_font_size": real_font_size,
                     "anchor": self.canvas.itemcget(item_id, "anchor"),
                     "angle": float(angle) if angle else 0.0
                 })
@@ -245,11 +257,12 @@ class EditPage(ctk.CTkFrame):
         for data in self.pages_data[self.current_page_idx]:
             scaled_coords = [c * z for c in data["coords"]]
             if "text_obj" in data["tags"]:
-                display_size = int(data["real_font_size"] * z)
-                self.canvas.create_text(*scaled_coords, text=data["text"], fill=data["fill"], 
+                display_size = -int(data["real_font_size"] * z)
+                item_id = self.canvas.create_text(*scaled_coords, text=data["text"], fill=data["fill"], 
                                        font=(data["font_family"], display_size), 
                                        anchor=data["anchor"], tags=data["tags"], 
                                        angle=data.get("angle", 0.0))
+                self.item_original_fonts[self._get_id(item_id)] = data.get("original_pdf_font", "helv")
             elif "draw_line" in data["tags"]:
                 self.canvas.create_line(*scaled_coords, fill=data["fill"], width=2, capstyle="round", tags=data["tags"])
             elif "redaction" in data["tags"]:
@@ -295,11 +308,11 @@ class EditPage(ctk.CTkFrame):
         self.canvas.bind("<B1-Motion>", self._on_drag)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
         self.canvas.bind("<Double-Button-1>", self._on_double_click)
-        self.canvas.bind("<Button-3>", self._on_right_click) # Clic droit ajouté
+        self.canvas.bind("<Button-3>", self._on_right_click)
 
-    # ---- AMÉLIORATION : Récupère la police de n'importe quel point ----
     def _get_pdf_font_info(self, page, px, py):
         font_family = "Arial"
+        original_pdf_font = "helv"
         font_size = 14
         color_hex = "#000000"
         
@@ -315,17 +328,18 @@ class EditPage(ctk.CTkFrame):
                         int_color = span.get("color", 0)
                         color_hex = f"#{int_color:06x}"
                         
-                        pdf_font_lower = span.get("font", "Helvetica").lower()
+                        original_pdf_font = span.get("font", "Helvetica")
+                        pdf_font_lower = original_pdf_font.lower()
+                        
                         if "times" in pdf_font_lower: font_family = "Times New Roman"
                         elif "courier" in pdf_font_lower: font_family = "Courier New"
                         elif "calibri" in pdf_font_lower: font_family = "Calibri"
                         elif "cambria" in pdf_font_lower: font_family = "Cambria"
                         else: font_family = "Arial"
                         
-                        return font_family, font_size, color_hex
-        return font_family, font_size, color_hex
+                        return font_family, original_pdf_font, font_size, color_hex
+        return font_family, original_pdf_font, font_size, color_hex
 
-    # ---- AMÉLIORATION : Cible UNIQUEMENT le mot cliqué ----
     def _find_pdf_word_at(self, cx, cy):
         if not self.pdf_doc: return None
         page = self.pdf_doc[self.current_page_idx]
@@ -344,16 +358,16 @@ class EditPage(ctk.CTkFrame):
             
             if not clicked_word: return None
             
-            # Récupère la police exacte au centre du mot
             center_x = (clicked_word[0] + clicked_word[2]) / 2
             center_y = (clicked_word[1] + clicked_word[3]) / 2
             
-            ff, fs, col = self._get_pdf_font_info(page, center_x, center_y)
+            ff, opf, fs, col = self._get_pdf_font_info(page, center_x, center_y)
             
             return {
                 "text": clicked_word[4], 
                 "bbox": (clicked_word[0], clicked_word[1], clicked_word[2], clicked_word[3]),
                 "font_family": ff,
+                "original_pdf_font": opf,
                 "font_size": fs,
                 "color": col
             }
@@ -361,7 +375,6 @@ class EditPage(ctk.CTkFrame):
             print(f"Erreur d'extraction de mot: {e}")
         return None
 
-    # ---- NOUVEAU : Extrait tous les mots dans un rectangle (pour un paragraphe) ----
     def _find_pdf_text_in_rect(self, pdf_bbox):
         if not self.pdf_doc: return None
         page = self.pdf_doc[self.current_page_idx]
@@ -380,10 +393,9 @@ class EditPage(ctk.CTkFrame):
         text = page.get_textbox(rect)
         if not text.strip(): return None
         
-        # Base la police sur le premier mot sélectionné
         w = selected_words[0]
         center_x, center_y = (w[0]+w[2])/2, (w[1]+w[3])/2
-        ff, fs, col = self._get_pdf_font_info(page, center_x, center_y)
+        ff, opf, fs, col = self._get_pdf_font_info(page, center_x, center_y)
         
         min_x = min(wd[0] for wd in selected_words)
         min_y = min(wd[1] for wd in selected_words)
@@ -394,15 +406,18 @@ class EditPage(ctk.CTkFrame):
             "text": text,
             "bbox": (min_x, min_y, max_x, max_y),
             "font_family": ff,
+            "original_pdf_font": opf,
             "font_size": fs,
             "color": col
         }
 
     def _on_click(self, event):
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-        if self.active_entry_window: return 
+        
+        if self.active_entry_window:
+            self.canvas.focus_set() 
+            return 
 
-        # Si on clique ailleurs, on nettoie le rectangle de paragraphe
         if self.tool_mode == "select":
             if hasattr(self, 'current_pdf_selection_rect') and self.current_pdf_selection_rect:
                 self.canvas.delete(self.current_pdf_selection_rect)
@@ -456,18 +471,16 @@ class EditPage(ctk.CTkFrame):
                 overlapping = self.canvas.find_overlapping(x1, y1, x2, y2)
                 self.selected_items = [self._get_id(i) for i in overlapping if "editable" in self.canvas.gettags(i)]
                 
-                # S'il n'y a pas d'items d'édition, c'est peut-être une sélection de paragraphe !
                 if not self.selected_items and (x2 - x1) > 10 and (y2 - y1) > 10:
                     self.pdf_selection_bbox = (x1, y1, x2, y2)
                     self.current_pdf_selection_rect = self.selection_rect_id 
-                    self.selection_rect_id = None # Garde le rectangle affiché
+                    self.selection_rect_id = None 
                 else:
                     self.canvas.delete(self.selection_rect_id)
                     self.selection_rect_id = None
             self.drag_data["mode"] = None
         self._draw_highlights()
 
-    # ---- NOUVEAU : Clic droit pour ouvrir le menu Paragraphe ----
     def _on_right_click(self, event):
         if self.tool_mode == "select" and self.current_pdf_selection_rect and self.pdf_selection_bbox:
             cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
@@ -478,13 +491,11 @@ class EditPage(ctk.CTkFrame):
                 menu.tk_popup(event.x_root, event.y_root)
 
     def _edit_paragraph(self, canvas_bbox):
-        # 1. Nettoyer le rectangle bleu
         if self.current_pdf_selection_rect:
             self.canvas.delete(self.current_pdf_selection_rect)
             self.current_pdf_selection_rect = None
         self.pdf_selection_bbox = None
         
-        # 2. Convertir et extraire le texte
         z = self.zoom_level
         pdf_bbox = [c / z for c in canvas_bbox]
         data = self._find_pdf_text_in_rect(pdf_bbox)
@@ -500,8 +511,8 @@ class EditPage(ctk.CTkFrame):
                 fill="white", outline="white", tags=("editable", "redaction")
             )
             
-            TK_TO_PDF_RATIO = 1.333
-            tk_font_size = max(8, int((data["font_size"] * z) / TK_TO_PDF_RATIO))
+            # Utilisation de la taille en pixels stricts pour un match parfait
+            tk_font_size_pixels = -int(data["font_size"] * z)
             
             box_width = (s_bbox[2] - s_bbox[0]) + 15
             box_height = (s_bbox[3] - s_bbox[1]) + 15
@@ -509,7 +520,9 @@ class EditPage(ctk.CTkFrame):
             self._create_text_input(
                 s_bbox[0], s_bbox[1], 
                 initial_text=data["text"],
-                font_family=data["font_family"], font_size=tk_font_size,
+                font_family=data["font_family"], 
+                font_size=tk_font_size_pixels,
+                original_pdf_font=data["original_pdf_font"],
                 box_width=box_width, box_height=box_height,
                 is_multiline=True
             )
@@ -522,7 +535,6 @@ class EditPage(ctk.CTkFrame):
             item_id = self._get_id(item)
             tags = self.canvas.gettags(item_id) if item_id else []
             
-            # Modifier ce qu'on a déjà ajouté
             if item_id and "text_obj" in tags:
                 current_text = self.canvas.itemcget(item_id, "text")
                 coords = self.canvas.coords(item_id)
@@ -531,7 +543,9 @@ class EditPage(ctk.CTkFrame):
                 
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
                 font_family = f.actual("family")
-                font_size = abs(f.actual("size"))
+                # On préserve le pixel exact
+                font_size = -abs(f.actual("size"))
+                original_pdf_font = self.item_original_fonts.get(item_id, "helv")
 
                 bbox = self.canvas.bbox(item_id)
                 box_width = max(80, (bbox[2] - bbox[0]) + 30) if bbox else 150
@@ -540,12 +554,10 @@ class EditPage(ctk.CTkFrame):
                 if item_id in self.selected_items: self.selected_items.remove(item_id)
                 self.canvas.delete("highlighter")
                 
-                # Check si c'est multiligne basé sur un \n
                 is_multi = "\n" in current_text
-                self._create_text_input(coords[0], coords[1], initial_text=current_text, font_family=font_family, font_size=font_size, box_width=box_width, is_multiline=is_multi)
+                self._create_text_input(coords[0], coords[1], initial_text=current_text, font_family=font_family, font_size=font_size, original_pdf_font=original_pdf_font, box_width=box_width, is_multiline=is_multi)
                 return
 
-            # Modifier UN SEUL MOT du PDF (Style Adobe)
             word_data = self._find_pdf_word_at(cx, cy)
             if word_data:
                 bbox = word_data["bbox"] 
@@ -561,8 +573,8 @@ class EditPage(ctk.CTkFrame):
                     fill="white", outline="white", tags=("editable", "redaction")
                 )
                 
-                TK_TO_PDF_RATIO = 1.333
-                tk_font_size = max(8, int((word_data["font_size"] * z) / TK_TO_PDF_RATIO))
+                # LA MAGIE DU PIXEL: En utilisant le négatif `-int()`, on force Tkinter à coller à la vraie taille PDF * Zoom
+                tk_font_size_pixels = -int(word_data["font_size"] * z)
                 box_width = max(50, (scaled_bbox[2] - scaled_bbox[0]) + 15)
                 
                 self._create_text_input(
@@ -570,7 +582,8 @@ class EditPage(ctk.CTkFrame):
                     scaled_bbox[1] - 2, 
                     initial_text=word_data["text"],
                     font_family=word_data["font_family"],
-                    font_size=tk_font_size,
+                    font_size=tk_font_size_pixels,
+                    original_pdf_font=word_data["original_pdf_font"],
                     box_width=box_width,
                     is_multiline=False
                 )
@@ -585,7 +598,8 @@ class EditPage(ctk.CTkFrame):
                 self._refresh_image_item(item_id)
             elif "text_obj" in tags:
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
-                new_size = max(6, int(abs(f.actual("size")) * factor))
+                current_size = f.actual("size")
+                new_size = int(current_size * factor) if current_size < 0 else max(6, int(abs(current_size) * factor))
                 self.canvas.itemconfig(item_id, font=(f.actual("family"), new_size))
         self._draw_highlights()
 
@@ -619,6 +633,9 @@ class EditPage(ctk.CTkFrame):
             if bbox: self.canvas.create_rectangle(bbox[0]-2, bbox[1]-2, bbox[2]+2, bbox[3]+2, outline="#3498db", width=1, tags="highlighter")
 
     def set_tool(self, mode):
+        if self.active_entry_window:
+            self.canvas.focus_set()
+            
         self.tool_mode = mode
         self.selected_items = []
         self.canvas.delete("highlighter")
@@ -647,7 +664,7 @@ class EditPage(ctk.CTkFrame):
             item_id = self._get_id(item)
             if "text_obj" in self.canvas.gettags(item_id):
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
-                self.canvas.itemconfig(item_id, font=(f.actual("family"), self.current_font_size))
+                self.canvas.itemconfig(item_id, font=(f.actual("family"), -int(self.current_font_size * self.zoom_level)))
     
     def _choose_color(self):
         c = colorchooser.askcolor()[1]
@@ -667,18 +684,23 @@ class EditPage(ctk.CTkFrame):
             self.pdf_doc = fitz.open(p)
             self.current_page_idx = 0
             self.pages_data = {}
+            self.item_original_fonts = {}
             self._show_page()
 
     def save_changes(self):
         if not self.pdf_doc: return
+        
+        if self.active_entry_window:
+            self.canvas.focus_set()
+            
         self._save_current_page_state() 
         for pg_idx, items in self.pages_data.items():
             page = self.pdf_doc[pg_idx]
             for data in items:
                 coords = data["coords"]
                 if "text_obj" in data["tags"]:
-                    TK_TO_PDF_RATIO = 1.333
-                    pdf_font_size = data["real_font_size"] * TK_TO_PDF_RATIO
+                    # On a conservé la taille exacte sans le ratio, on la réutilise directement !
+                    pdf_font_size = data["real_font_size"]
                     
                     hex_color = data["fill"].lstrip('#')
                     rgb = tuple(int(hex_color[i:i+2], 16)/255.0 for i in (0, 2, 4))
@@ -686,12 +708,10 @@ class EditPage(ctk.CTkFrame):
                     angle = int(data.get("angle", 0))
                     y_offset = pdf_font_size * 0.75 
                     
-                    tk_font = data.get("font_family", "").lower()
-                    pdf_font = "helv" 
-                    if "times" in tk_font: pdf_font = "ti-ro"
-                    elif "courier" in tk_font: pdf_font = "cour"
+                    # On utilise la vraie police PDF récupérée au clic !
+                    pdf_font = data.get("original_pdf_font", "helv")
                     
-                    # insert_text supporte le multiline (\n) automatiquement 
+                    # On injecte le texte avec la police, taille et couleur originales
                     page.insert_text((coords[0], coords[1] + y_offset), data["text"], fontname=pdf_font, fontsize=pdf_font_size, color=rgb, rotate=angle)
                 
                 elif "draw_line" in data["tags"]:

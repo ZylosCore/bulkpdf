@@ -6,11 +6,11 @@ class Topbar(ctk.CTkFrame):
         super().__init__(master, height=45, corner_radius=0, fg_color=TOPBAR_COLOR, **kwargs)
         
         self.title_label = ctk.CTkLabel(self, text="BulkPDF Engine v2.0", 
-                                        font=("Segoe UI", 11, "bold"), 
+                                        font=("Segoe UI Variable Display", 11, "bold"), 
                                         text_color=TEXT_LOW)
         self.title_label.pack(side="left", padx=20)
         
         self.status = ctk.CTkLabel(self, text="● System Ready", 
-                                   font=("Segoe UI", 11), 
+                                   font=("Segoe UI Variable Display", 11), 
                                    text_color="#50fa7b")
         self.status.pack(side="right", padx=20)

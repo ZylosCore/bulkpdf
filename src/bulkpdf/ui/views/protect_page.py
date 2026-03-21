@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 from .pdf_operations import PDFOperationsView
-from ..theme import TEXT_TITLE, FONT_FAMILY, ACCENT_PURPLE
+from ..theme import TEXT_TITLE, FONT_FAMILY, ACCENT_BLUE
 
 class ProtectPage(PDFOperationsView):
     def __init__(self, master, **kwargs):
@@ -13,7 +13,9 @@ class ProtectPage(PDFOperationsView):
         self.password_entry = ctk.CTkEntry(self.action_bar, placeholder_text="set password...", 
                                            show="*", width=160, height=32)
         self.password_entry.pack(side="left", padx=10)
-        self.run_btn.configure(text="Protect PDF", fg_color=ACCENT_PURPLE)
+        
+        # Correction de la couleur ici
+        self.run_btn.configure(text="Protect PDF", fg_color=ACCENT_BLUE)
 
     def execute_task(self):
         if not self.files_paths:

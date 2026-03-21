@@ -6,13 +6,13 @@ class FileCard(ctk.CTkFrame):
         super().__init__(master, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=8, **kwargs)
         self.file_path = file_path
         
-        self.status_label = ctk.CTkLabel(self, text="", font=("Segoe UI", 12))
+        self.status_label = ctk.CTkLabel(self, text="", font=("Segoe UI Variable Display", 12))
         self.status_label.pack(side="left", padx=(10, 0))
 
-        self.name_label = ctk.CTkLabel(self, text=file_path.name, font=("Segoe UI", 12, "bold"), text_color=TEXT_MAIN)
+        self.name_label = ctk.CTkLabel(self, text=file_path.name, font=("Segoe UI Variable Display", 12, "bold"), text_color=TEXT_MAIN)
         self.name_label.pack(side="left", padx=10, pady=10)
         
-        self.path_label = ctk.CTkLabel(self, text=str(file_path.parent)[:30] + "...", font=("Segoe UI", 10), text_color=TEXT_LOW)
+        self.path_label = ctk.CTkLabel(self, text=str(file_path.parent)[:30] + "...", font=("Segoe UI Variable Display", 10), text_color=TEXT_LOW)
         self.path_label.pack(side="left", padx=10)
 
         self.del_btn = ctk.CTkButton(self, text="×", width=25, height=25, fg_color="transparent", 

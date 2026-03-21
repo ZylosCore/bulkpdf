@@ -1,18 +1,21 @@
-# (Light Mode Color, Dark Mode Color)
-BG_COLOR = ("#fcfcfc", "#1e1f29")
-SIDEBAR_COLOR = ("#f0f0f0", "#191a21")
-TOPBAR_COLOR = ("#f0f0f0", "#191a21")
-CARD_COLOR = ("#ffffff", "#282a36")
-BORDER_COLOR = ("#e0e0e0", "#44475a")
+# Palette inspirée d'Adobe Acrobat / Creative Cloud
+# (Mode Clair, Mode Sombre)
 
-# Accents
-ACCENT_PURPLE = "#7b61ff" 
-ACCENT_GREEN = "#27ae60"
-ACCENT_CYAN = "#00bcd4"
-ACCENT_PINK = "#ff79c6"
+# Fonds neutres pour ne pas distraire l'utilisateur
+BG_COLOR = ("#f3f3f3", "#1e1e1e")          # Le fond de la zone de travail
+SIDEBAR_COLOR = ("#f8f8f8", "#252526")     # Les panneaux latéraux (légèrement détachés)
+TOPBAR_COLOR = ("#ffffff", "#2d2d30")      # Barre d'outils
+CARD_COLOR = ("#ffffff", "#2d2d30")        # Cartes et menus
+BORDER_COLOR = ("#d1d1d1", "#3e3e42")      # Bordures subtiles
 
-# Typography - Titres réduits à 16px pour un look "App" et non "Web"
-FONT_FAMILY = "Segoe UI Variable Text"
-TEXT_MAIN = ("#2c3e50", "#ffffff") 
-TEXT_TITLE = ("#1a1a1a", "#ffffff") 
-TEXT_LOW = ("#7f8c8d", "#6272a4")
+# Couleurs d'accentuation
+ACCENT_RED = "#eb0000"   # Le rouge iconique PDF d'Adobe
+ACCENT_BLUE = "#0058d0"  # Bleu pour les sélections et boutons actifs
+ACCENT_GREEN = "#27ae60" # Succès
+ACCENT_DARK = ("#e0e0e0", "#333333") # Boutons inactifs
+
+# Typographie - Claire, professionnelle et lisible
+FONT_FAMILY = "Segoe UI Variable Display" # Police native ultra-nette de Windows 11
+TEXT_MAIN = ("#111111", "#cccccc")        # Texte lisible mais pas blanc pur (fatigue les yeux)
+TEXT_TITLE = ("#000000", "#ffffff")       # Titres impactants
+TEXT_LOW = ("#666666", "#999999")         # Texte secondaire

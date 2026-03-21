@@ -15,7 +15,6 @@ from .views.settings_page import SettingsPage
 from .views.edit_page import EditPage
 
 def get_resource_path(filename):
-    """ Fonction infaillible pour trouver les assets (.py et .exe) """
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, "assets", filename)
         
@@ -30,38 +29,40 @@ class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        # Forcer le mode du système (Clair ou Sombre) globalement
+        ctk.set_appearance_mode("System")
+
         self.title(t("app_title"))
-        self.geometry("1100x700")
+        self.geometry("1200x800") # Un peu plus large par défaut pour le confort
+        self.minsize(900, 600)
         
-        # --- APPLICATION DE L'ICÔNE ---
+        # Application de l'icône
         ico_path = get_resource_path("logo.ico")
         png_path = get_resource_path("logo.png")
-        
-        # 1. On applique le vrai fichier .ico pour Windows
         if os.path.exists(ico_path):
-            try:
-                self.iconbitmap(ico_path)
+            try: self.iconbitmap(ico_path)
             except: pass
-            
-        # 2. Secours très puissant : on injecte l'icône via PIL pour la barre des tâches
         if os.path.exists(png_path):
             try:
                 img = ImageTk.PhotoImage(Image.open(png_path))
-                # Le paramètre 'True' force cette icône comme icône par défaut de la fenêtre
                 self.iconphoto(True, img)
             except: pass
 
+        # Structure globale (0 = Sidebar, 1 = Main Workspace)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        # La Sidebar agit maintenant comme un "Dock" ancré
         self.sidebar = Sidebar(self, selection_callback=self.show_page)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.grid(row=0, column=1, sticky="nsew", padx=20, pady=20)
+        # Le conteneur principal: 0 margin pour un effet flush (sans espaces vides autour)
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        self.main_container.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
         self.main_container.grid_columnconfigure(0, weight=1)
         self.main_container.grid_rowconfigure(0, weight=1)
 
+        # Instanciation des vues
         self.pages = {
             "merge": MergePage(self.main_container),
             "extract": ExtractPage(self.main_container),
@@ -75,7 +76,10 @@ class BulkPDFApp(ctk.CTk):
         self.show_page("merge")
 
     def show_page(self, page_id):
+        # Système de navigation ultra rapide
         for page in self.pages.values():
             page.grid_forget()
+            
         target_page = self.pages[page_id]
+        # On attache la vue sans aucune marge pour fusionner avec la Sidebar
         target_page.grid(row=0, column=0, sticky="nsew")
