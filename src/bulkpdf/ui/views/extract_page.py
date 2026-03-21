@@ -1,13 +1,17 @@
 import customtkinter as ctk
-import fitz  # PyMuPDF
+import fitz  
 from tkinter import filedialog, messagebox
 import os
 import zipfile
 from ..i18n import t
+from ..theme import (BG_COLOR, CARD_COLOR, BORDER_COLOR, TEXT_TITLE, FONT_FAMILY, TEXT_LOW,
+                     CORNER_RADIUS, BTN_PRIMARY, BTN_PRIMARY_HOVER, 
+                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SCROLLBAR_COLOR, SCROLLBAR_HOVER, 
+                     SIZE_TITLE, SIZE_MAIN, TEXT_MAIN)
 
 class ExtractPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
+        super().__init__(master, fg_color="transparent", **kwargs)
         self.pdf_path = None
         self.total_pages = 0
         self.output_mode = ctk.StringVar(value="pdf") 
@@ -17,59 +21,69 @@ class ExtractPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        header = ctk.CTkLabel(self, text=t("extract_title"), font=("Arial", 24, "bold"))
+        header = ctk.CTkLabel(self, text=t("extract_title"), font=(FONT_FAMILY, SIZE_TITLE, "bold"), text_color=TEXT_TITLE)
         header.grid(row=0, column=0, pady=(20, 10), padx=20, sticky="w")
 
-        self.main_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.main_scroll = ctk.CTkScrollableFrame(
+            self, fg_color="transparent",
+            scrollbar_button_color=SCROLLBAR_COLOR,
+            scrollbar_button_hover_color=SCROLLBAR_HOVER
+        )
         self.main_scroll.grid(row=1, column=0, sticky="nsew", padx=20)
         self.main_scroll.grid_columnconfigure(0, weight=1)
 
         # CARTE 1 : Fichier
-        card_file = ctk.CTkFrame(self.main_scroll, fg_color=("#ebebeb", "#1a1a1a"), corner_radius=10)
+        card_file = ctk.CTkFrame(self.main_scroll, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=CORNER_RADIUS)
         card_file.grid(row=0, column=0, sticky="ew", pady=(0, 20))
         card_file.grid_columnconfigure(0, weight=1)
 
-        self.file_label = ctk.CTkLabel(card_file, text=t("extract_no_file"), font=("Arial", 15, "bold"))
+        self.file_label = ctk.CTkLabel(card_file, text=t("extract_no_file"), font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_MAIN)
         self.file_label.grid(row=0, column=0, pady=(20, 5))
 
-        self.info_label = ctk.CTkLabel(card_file, text="", text_color="gray")
+        self.info_label = ctk.CTkLabel(card_file, text="", text_color=TEXT_LOW, font=(FONT_FAMILY, SIZE_MAIN))
         self.info_label.grid(row=1, column=0, pady=(0, 15))
 
-        btn_select = ctk.CTkButton(card_file, text=t("btn_choose_pdf"), width=200, command=self._select_pdf)
+        btn_select = ctk.CTkButton(
+            card_file, text=t("btn_choose_pdf"), width=150, height=32, corner_radius=CORNER_RADIUS,
+            font=(FONT_FAMILY, SIZE_MAIN, "bold"), fg_color=BTN_PRIMARY, hover_color=BTN_PRIMARY_HOVER,
+            command=self._select_pdf
+        )
         btn_select.grid(row=2, column=0, pady=(0, 20))
 
         # CARTE 2 : Paramètres
-        self.card_options = ctk.CTkFrame(self.main_scroll, fg_color=("#ebebeb", "#1a1a1a"), corner_radius=10)
+        self.card_options = ctk.CTkFrame(self.main_scroll, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=CORNER_RADIUS)
         self.card_options.grid(row=1, column=0, sticky="ew", pady=0)
         self.card_options.grid_columnconfigure(0, weight=1)
         
         range_frame = ctk.CTkFrame(self.card_options, fg_color="transparent")
-        range_frame.pack(pady=(20, 20))
+        range_frame.pack(pady=(20, 15))
 
-        ctk.CTkLabel(range_frame, text=t("extract_from")).grid(row=0, column=0, padx=5)
-        self.entry_start = ctk.CTkEntry(range_frame, width=60, justify="center")
+        ctk.CTkLabel(range_frame, text=t("extract_from"), font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).grid(row=0, column=0, padx=5)
+        self.entry_start = ctk.CTkEntry(range_frame, width=60, height=28, corner_radius=CORNER_RADIUS, border_color=BORDER_COLOR, justify="center")
         self.entry_start.grid(row=0, column=1, padx=5)
         
-        ctk.CTkLabel(range_frame, text=t("extract_to")).grid(row=0, column=2, padx=5)
-        self.entry_end = ctk.CTkEntry(range_frame, width=60, justify="center")
+        ctk.CTkLabel(range_frame, text=t("extract_to"), font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).grid(row=0, column=2, padx=5)
+        self.entry_end = ctk.CTkEntry(range_frame, width=60, height=28, corner_radius=CORNER_RADIUS, border_color=BORDER_COLOR, justify="center")
         self.entry_end.grid(row=0, column=3, padx=5)
 
         mode_frame = ctk.CTkFrame(self.card_options, fg_color="transparent")
         mode_frame.pack(pady=(0, 20))
 
-        ctk.CTkLabel(mode_frame, text=t("extract_format"), font=("Arial", 13, "bold")).pack(anchor="w", pady=(0, 10))
-        ctk.CTkRadioButton(mode_frame, text=t("format_pdf"), variable=self.output_mode, value="pdf").pack(anchor="w", pady=5)
-        ctk.CTkRadioButton(mode_frame, text=t("format_zip"), variable=self.output_mode, value="zip").pack(anchor="w", pady=5)
+        ctk.CTkLabel(mode_frame, text=t("extract_format"), font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_MAIN).pack(anchor="w", pady=(0, 10))
+        ctk.CTkRadioButton(mode_frame, text=t("format_pdf"), variable=self.output_mode, value="pdf", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", pady=5)
+        ctk.CTkRadioButton(mode_frame, text=t("format_zip"), variable=self.output_mode, value="zip", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", pady=5)
 
         action_frame = ctk.CTkFrame(self, fg_color="transparent")
         action_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
         action_frame.grid_columnconfigure(0, weight=1)
 
-        self.btn_extract = ctk.CTkButton(action_frame, text=t("btn_extract_save"), 
-                                         fg_color="#e67e22", hover_color="#d35400", 
-                                         height=45, font=("Arial", 14, "bold"),
-                                         state="disabled", command=self._extract_pdf)
-        self.btn_extract.grid(row=0, column=0, sticky="ew")
+        self.btn_extract = ctk.CTkButton(
+            action_frame, text=t("btn_extract_save"), 
+            fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, 
+            width=200, height=36, corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
+            state="disabled", command=self._extract_pdf
+        )
+        self.btn_extract.grid(row=0, column=0)
 
     def _select_pdf(self):
         path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])

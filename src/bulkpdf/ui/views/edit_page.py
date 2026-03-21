@@ -8,7 +8,9 @@ import io
 import tkinter.font as tkFont
 from datetime import datetime
 from pathlib import Path
-from ..i18n import t  # IMPORTATION DE LA LANGUE
+from ..i18n import t  
+from ..theme import (BG_COLOR, TOPBAR_COLOR, BORDER_COLOR, TEXT_MAIN, FONT_FAMILY, 
+                     CORNER_RADIUS, SCROLLBAR_COLOR, SCROLLBAR_HOVER, SIZE_MAIN)
 
 def resource_path(relative_path):
     try:
@@ -19,7 +21,7 @@ def resource_path(relative_path):
 
 class EditPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
+        super().__init__(master, fg_color="transparent", **kwargs)
         
         self.app_data_dir = Path(os.getenv('APPDATA', '.')) / "BulkPDF"
         self.sig_dir = self.app_data_dir / "signatures"
@@ -47,7 +49,7 @@ class EditPage(ctk.CTkFrame):
         self.current_color = "#000000" 
         self.last_x, self.last_y = 0, 0
         self.image_refs = {} 
-        self.item_original_fonts = {} # Pour stocker la vraie police du PDF
+        self.item_original_fonts = {} 
         
         self._setup_ui()
         self._setup_bindings()
@@ -76,7 +78,7 @@ class EditPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.toolbar = ctk.CTkFrame(self, height=45, fg_color=("#ffffff", "#2b2b2b"), corner_radius=0)
+        self.toolbar = ctk.CTkFrame(self, height=45, fg_color=TOPBAR_COLOR, corner_radius=0, border_width=1, border_color=BORDER_COLOR)
         self.toolbar.grid(row=0, column=0, sticky="ew")
         self.toolbar.grid_propagate(False)
 
@@ -100,39 +102,52 @@ class EditPage(ctk.CTkFrame):
         self._create_btn(container, "trash", t("btn_delete"), self._delete_selected)
         
         self._add_sep(container)
-        self.size_menu = ctk.CTkComboBox(container, values=["12", "14", "18", "24", "32", "48"], width=65, height=28, command=self._update_font_settings)
+        self.size_menu = ctk.CTkComboBox(container, values=["12", "14", "18", "24", "32", "48"], width=65, height=28, corner_radius=CORNER_RADIUS, border_color=BORDER_COLOR, font=(FONT_FAMILY, SIZE_MAIN), command=self._update_font_settings)
         self.size_menu.set("14")
         self.size_menu.pack(side="left", padx=5)
         self.color_btn = ctk.CTkButton(container, text="", width=24, height=24, fg_color=self.current_color, command=self._choose_color, corner_radius=12)
         self.color_btn.pack(side="left", padx=5)
 
-        self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=("#ebebeb", "#1a1a1a"), corner_radius=0)
+        self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, corner_radius=0, scrollbar_button_color=SCROLLBAR_COLOR, scrollbar_button_hover_color=SCROLLBAR_HOVER)
         self.scroll_canvas.grid(row=1, column=0, sticky="nsew")
         self.canvas = Canvas(self.scroll_canvas, bg="white", bd=0, highlightthickness=0)
         self.canvas.pack(pady=20)
 
-        self.status_bar = ctk.CTkFrame(self, height=35, fg_color=("#dbdbdb", "#252525"), corner_radius=0)
+        self.status_bar = ctk.CTkFrame(self, height=35, fg_color=TOPBAR_COLOR, corner_radius=0, border_width=1, border_color=BORDER_COLOR)
         self.status_bar.grid(row=2, column=0, sticky="ew")
         
         nav_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
         nav_cnt.pack(side="left", padx=20)
         self._create_nav_btn(nav_cnt, "left", lambda: self._navigate(-1))
-        self.page_label = ctk.CTkLabel(nav_cnt, text=f"{t('page_lbl')} 0 / 0", font=("Arial", 11, "bold"))
+        self.page_label = ctk.CTkLabel(nav_cnt, text=f"{t('page_lbl')} 0 / 0", font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_MAIN)
         self.page_label.pack(side="left", padx=10)
         self._create_nav_btn(nav_cnt, "right", lambda: self._navigate(1))
 
         zoom_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
         zoom_cnt.pack(side="right", padx=20)
         self._create_nav_btn(zoom_cnt, "minus", lambda: self._change_zoom(-0.1))
-        self.zoom_label = ctk.CTkLabel(zoom_cnt, text=f"{int(self.zoom_level*100)}%", width=50)
+        self.zoom_label = ctk.CTkLabel(zoom_cnt, text=f"{int(self.zoom_level*100)}%", width=50, font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN)
         self.zoom_label.pack(side="left")
         self._create_nav_btn(zoom_cnt, "plus", lambda: self._change_zoom(0.1))
+
+    def _create_btn(self, parent, icon_name, tooltip, command, is_accent=False):
+        icon = self._get_edit_icon(icon_name)
+        btn = ctk.CTkButton(parent, text=tooltip, image=icon, width=32, height=32, corner_radius=CORNER_RADIUS, fg_color="transparent" if not is_accent else "#4a69bd", command=command)
+        btn.pack(side="left", padx=2)
+        return btn
+
+    def _create_nav_btn(self, parent, icon_name, command):
+        icon = self._get_edit_icon(icon_name, size=(14, 14))
+        ctk.CTkButton(parent, text="", image=icon, width=28, height=28, corner_radius=CORNER_RADIUS, fg_color="transparent", command=command).pack(side="left", padx=2)
+
+    def _add_sep(self, parent):
+        ctk.CTkFrame(parent, width=1, height=25, fg_color=BORDER_COLOR).pack(side="left", padx=10)
 
     def _create_text_input(self, x, y, initial_text="", font_family=None, font_size=None, original_pdf_font=None, box_width=None, box_height=None, is_multiline=False):
         if self.active_entry_window: return 
         
         ff = font_family if font_family else "Arial"
-        fs = font_size if font_size else -int(self.current_font_size * self.zoom_level) # Pixel sizing
+        fs = font_size if font_size else -int(self.current_font_size * self.zoom_level)
         
         self._is_finalizing = False 
         
@@ -150,7 +165,6 @@ class EditPage(ctk.CTkFrame):
             self.active_entry_window = None
             if content:
                 item_id = self.canvas.create_text(x, y, text=content, font=(ff, fs), fill=self.current_color, anchor=NW, tags=("editable", "text_obj"), angle=0, width=box_width if is_multiline else 0)
-                # Sauvegarder la police PDF d'origine pour l'enregistrement parfait
                 self.item_original_fonts[self._get_id(item_id)] = original_pdf_font or "helv"
 
             self.after(200, lambda: setattr(self, '_is_finalizing', False))
@@ -216,12 +230,8 @@ class EditPage(ctk.CTkFrame):
             if "text_obj" in tags:
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
                 angle = self.canvas.itemcget(item_id, "angle")
-                
-                # Récupère la taille absolue (sans le signe négatif) et la remet à l'échelle du PDF
                 tk_size = abs(f.actual("size"))
                 real_font_size = tk_size * ratio
-                
-                # Récupère le nom original sauvegardé s'il existe
                 original_pdf_font = self.item_original_fonts.get(item_id, "helv")
                 
                 data.update({
@@ -511,7 +521,6 @@ class EditPage(ctk.CTkFrame):
                 fill="white", outline="white", tags=("editable", "redaction")
             )
             
-            # Utilisation de la taille en pixels stricts pour un match parfait
             tk_font_size_pixels = -int(data["font_size"] * z)
             
             box_width = (s_bbox[2] - s_bbox[0]) + 15
@@ -543,7 +552,6 @@ class EditPage(ctk.CTkFrame):
                 
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
                 font_family = f.actual("family")
-                # On préserve le pixel exact
                 font_size = -abs(f.actual("size"))
                 original_pdf_font = self.item_original_fonts.get(item_id, "helv")
 
@@ -573,7 +581,6 @@ class EditPage(ctk.CTkFrame):
                     fill="white", outline="white", tags=("editable", "redaction")
                 )
                 
-                # LA MAGIE DU PIXEL: En utilisant le négatif `-int()`, on force Tkinter à coller à la vraie taille PDF * Zoom
                 tk_font_size_pixels = -int(word_data["font_size"] * z)
                 box_width = max(50, (scaled_bbox[2] - scaled_bbox[0]) + 15)
                 
@@ -645,19 +652,6 @@ class EditPage(ctk.CTkFrame):
         for m, btn in self.tool_btns.items(): 
             btn.configure(fg_color="#44475a" if m == mode else "transparent")
 
-    def _create_btn(self, parent, icon_name, tooltip, command, is_accent=False):
-        icon = self._get_edit_icon(icon_name)
-        btn = ctk.CTkButton(parent, text=tooltip, image=icon, width=32, height=32, fg_color="transparent" if not is_accent else "#6272a4", command=command)
-        btn.pack(side="left", padx=2)
-        return btn
-
-    def _create_nav_btn(self, parent, icon_name, command):
-        icon = self._get_edit_icon(icon_name, size=(14, 14))
-        ctk.CTkButton(parent, text="", image=icon, width=28, height=28, fg_color="transparent", command=command).pack(side="left", padx=2)
-
-    def _add_sep(self, parent):
-        ctk.CTkFrame(parent, width=2, height=25, fg_color="#44475a").pack(side="left", padx=10)
-
     def _update_font_settings(self, v): 
         self.current_font_size = int(v)
         for item in self.selected_items:
@@ -699,7 +693,6 @@ class EditPage(ctk.CTkFrame):
             for data in items:
                 coords = data["coords"]
                 if "text_obj" in data["tags"]:
-                    # On a conservé la taille exacte sans le ratio, on la réutilise directement !
                     pdf_font_size = data["real_font_size"]
                     
                     hex_color = data["fill"].lstrip('#')
@@ -708,10 +701,7 @@ class EditPage(ctk.CTkFrame):
                     angle = int(data.get("angle", 0))
                     y_offset = pdf_font_size * 0.75 
                     
-                    # On utilise la vraie police PDF récupérée au clic !
                     pdf_font = data.get("original_pdf_font", "helv")
-                    
-                    # On injecte le texte avec la police, taille et couleur originales
                     page.insert_text((coords[0], coords[1] + y_offset), data["text"], fontname=pdf_font, fontsize=pdf_font_size, color=rgb, rotate=angle)
                 
                 elif "draw_line" in data["tags"]:

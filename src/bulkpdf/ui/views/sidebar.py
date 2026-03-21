@@ -1,22 +1,23 @@
 import customtkinter as ctk
-from ..i18n import t  # IMPORTATION DE LA LANGUE
-from ..theme import SIDEBAR_COLOR, ACCENT_BLUE, TEXT_MAIN, FONT_FAMILY
+from ..i18n import t  
+from ..theme import SIDEBAR_COLOR, ACCENT_BLUE, TEXT_MAIN, FONT_FAMILY, SIZE_TITLE, SIZE_MAIN
 from ..icons_data import get_icon
 
 class Sidebar(ctk.CTkFrame):
     def __init__(self, master, selection_callback, **kwargs):
-        super().__init__(master, width=260, corner_radius=0, fg_color=SIDEBAR_COLOR, **kwargs)
+        super().__init__(master, width=220, corner_radius=0, fg_color=SIDEBAR_COLOR, **kwargs) # Menu un peu moins large
         self.selection_callback = selection_callback
         
-        logo_img = get_icon("logo", size=(80, 80))
-        self.logo_label = ctk.CTkLabel(self, text="BULK PDF", image=logo_img,
-                                     compound="top", font=(FONT_FAMILY, 22, "bold"), 
-                                     text_color=ACCENT_BLUE)
-        self.logo_label.pack(pady=(30, 25), padx=20)
+        logo_img = get_icon("logo", size=(40, 40)) # Logo réduit
+        self.logo_label = ctk.CTkLabel(
+            self, text="BULK PDF", image=logo_img,
+            compound="top", font=(FONT_FAMILY, SIZE_TITLE, "bold"), # Police réduite
+            text_color=ACCENT_BLUE
+        )
+        self.logo_label.pack(pady=(25, 20), padx=20)
 
         self.buttons = {}
         
-        # MENUS TRADUITS
         menu_items = [
             ("merge", t("menu_merge"), "merge"),
             ("extract", t("menu_extract"), "image"), 
@@ -31,14 +32,16 @@ class Sidebar(ctk.CTkFrame):
             self.buttons[id] = self._create_nav_btn(label, id, icon_name)
 
     def _create_nav_btn(self, text, page_id, icon_name):
-        icon = get_icon(icon_name, size=(24, 24))
-        btn = ctk.CTkButton(self, text=f"  {text}", image=icon, compound="left",
-                           height=50, anchor="w", corner_radius=12,
-                           fg_color="transparent", text_color=TEXT_MAIN,
-                           font=(FONT_FAMILY, 14),
-                           hover_color=("#e5e5e5", "#2d2f3b"),
-                           command=lambda p=page_id: self.select_btn(p))
-        btn.pack(fill="x", padx=20, pady=5)
+        icon = get_icon(icon_name, size=(18, 18)) # Icônes réduites
+        btn = ctk.CTkButton(
+            self, text=f"  {text}", image=icon, compound="left",
+            height=36, anchor="w", corner_radius=6, # Boutons moins hauts
+            fg_color="transparent", text_color=TEXT_MAIN,
+            font=(FONT_FAMILY, SIZE_MAIN), # Police réduite
+            hover_color=("#e5e5e5", "#2d2f3b"),
+            command=lambda p=page_id: self.select_btn(p)
+        )
+        btn.pack(fill="x", padx=15, pady=2) # Espacement réduit
         return btn
 
     def select_btn(self, page_id):

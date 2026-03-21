@@ -4,6 +4,7 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image, ImageTk
 from .i18n import t  
+from .theme import BG_COLOR
 from .views.sidebar import Sidebar
 from .views.topbar import Topbar
 from .views.merge_page import MergePage
@@ -29,14 +30,12 @@ class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Forcer le mode du système (Clair ou Sombre) globalement
         ctk.set_appearance_mode("System")
 
         self.title(t("app_title"))
-        self.geometry("1200x800") # Un peu plus large par défaut pour le confort
+        self.geometry("1100x750") 
         self.minsize(900, 600)
         
-        # Application de l'icône
         ico_path = get_resource_path("logo.ico")
         png_path = get_resource_path("logo.png")
         if os.path.exists(ico_path):
@@ -48,21 +47,18 @@ class BulkPDFApp(ctk.CTk):
                 self.iconphoto(True, img)
             except: pass
 
-        # Structure globale (0 = Sidebar, 1 = Main Workspace)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # La Sidebar agit maintenant comme un "Dock" ancré
         self.sidebar = Sidebar(self, selection_callback=self.show_page)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        # Le conteneur principal: 0 margin pour un effet flush (sans espaces vides autour)
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+        # Application de BG_COLOR pour le fond principal au lieu de transparent
+        self.main_container = ctk.CTkFrame(self, fg_color=BG_COLOR, corner_radius=0)
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
         self.main_container.grid_columnconfigure(0, weight=1)
         self.main_container.grid_rowconfigure(0, weight=1)
 
-        # Instanciation des vues
         self.pages = {
             "merge": MergePage(self.main_container),
             "extract": ExtractPage(self.main_container),
@@ -76,10 +72,8 @@ class BulkPDFApp(ctk.CTk):
         self.show_page("merge")
 
     def show_page(self, page_id):
-        # Système de navigation ultra rapide
         for page in self.pages.values():
             page.grid_forget()
             
         target_page = self.pages[page_id]
-        # On attache la vue sans aucune marge pour fusionner avec la Sidebar
         target_page.grid(row=0, column=0, sticky="nsew")

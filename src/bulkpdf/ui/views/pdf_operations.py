@@ -4,7 +4,10 @@ from pathlib import Path
 from datetime import datetime
 from .cards import FileCard
 from ...pdf_engine import PDFTask
-from ..theme import BG_COLOR, BORDER_COLOR, TEXT_LOW, ACCENT_BLUE, TEXT_TITLE, FONT_FAMILY
+from ..theme import (BG_COLOR, BORDER_COLOR, TEXT_LOW, TEXT_TITLE, FONT_FAMILY,
+                     CORNER_RADIUS, BTN_PRIMARY, BTN_PRIMARY_HOVER, 
+                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SCROLLBAR_COLOR, SCROLLBAR_HOVER,
+                     SIZE_TITLE, SIZE_MAIN)
 
 class PDFOperationsView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -12,27 +15,40 @@ class PDFOperationsView(ctk.CTkFrame):
         self.files_paths = []
         self.mode_name = "processed"
         
-        self.label = ctk.CTkLabel(self, text="PDF Operation", font=(FONT_FAMILY, 16, "bold"), text_color=TEXT_TITLE)
+        # Titre réduit avec SIZE_TITLE
+        self.label = ctk.CTkLabel(self, text="PDF Operation", font=(FONT_FAMILY, SIZE_TITLE, "bold"), text_color=TEXT_TITLE)
         self.label.pack(pady=(0, 10), anchor="w")
         
-        self.scroll = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=10)
+        self.scroll = ctk.CTkScrollableFrame(
+            self, fg_color=BG_COLOR, border_width=1, border_color=BORDER_COLOR, 
+            corner_radius=CORNER_RADIUS, scrollbar_button_color=SCROLLBAR_COLOR,
+            scrollbar_button_hover_color=SCROLLBAR_HOVER
+        )
         self.scroll.pack(fill="both", expand=True)
         
-        self.empty_label = ctk.CTkLabel(self.scroll, text="No files selected", font=(FONT_FAMILY, 12), text_color=TEXT_LOW)
+        # Label "No files" réduit
+        self.empty_label = ctk.CTkLabel(self.scroll, text="No files selected", font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_LOW)
         self.empty_label.pack(pady=60)
 
-        self.progress = ctk.CTkProgressBar(self, progress_color=ACCENT_BLUE, height=6)
-        # On ne pack pas la progress bar de suite pour garder l'interface propre
+        self.progress = ctk.CTkProgressBar(self, progress_color=BTN_PRIMARY, height=4, corner_radius=2)
 
         self.action_bar = ctk.CTkFrame(self, fg_color="transparent")
-        self.action_bar.pack(fill="x", pady=15)
+        self.action_bar.pack(fill="x", pady=10)
         
-        self.add_btn = ctk.CTkButton(self.action_bar, text="+ Add Files", height=32, fg_color=ACCENT_BLUE, command=self.browse_files)
-        self.add_btn.pack(side="left", padx=5)
+        # Boutons : police plus petite (SIZE_MAIN), moins hauts (height=30)
+        self.add_btn = ctk.CTkButton(
+            self.action_bar, text="+ Add Files", width=120, height=30, 
+            corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
+            fg_color=BTN_PRIMARY, hover_color=BTN_PRIMARY_HOVER, command=self.browse_files
+        )
+        self.add_btn.pack(side="left")
 
-        # BOUTON VERT : On s'assure qu'il appelle bien self.execute_task
-        self.run_btn = ctk.CTkButton(self.action_bar, text="Run Task", height=32, fg_color=("#27ae60", "#2ecc71"), hover_color="#219150", command=self.execute_task)
-        self.run_btn.pack(side="right", padx=5)
+        self.run_btn = ctk.CTkButton(
+            self.action_bar, text="Run Task", width=120, height=30, 
+            corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
+            fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, command=self.execute_task
+        )
+        self.run_btn.pack(side="right")
 
     def get_smart_filename(self):
         date_str = datetime.now().strftime("%Y-%m-%d")
@@ -54,12 +70,10 @@ class PDFOperationsView(ctk.CTkFrame):
         card.destroy()
 
     def execute_task(self):
-        # 1. Vérification des fichiers
         if not self.files_paths:
             messagebox.showwarning("Empty", "Please add files before running the task.")
             return
             
-        # 2. Récupération dynamique du mot de passe
         pw = None
         if hasattr(self, "password_entry"):
             pw = self.password_entry.get().strip()
@@ -67,13 +81,10 @@ class PDFOperationsView(ctk.CTkFrame):
                 messagebox.showwarning("Missing Info", "Please enter a password.")
                 return
 
-        # 3. Fenêtre de sauvegarde
         out = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile=self.get_smart_filename())
         if out:
-            print(f"[DEBUG] Launching {self.mode_name} task...")
             self.progress.pack(fill="x", pady=(0, 10))
-            self.progress.set(0.1) # Petit boost visuel au départ
-            
+            self.progress.set(0.1) 
             task = PDFTask(self.files_paths, out, self.on_progress, self.on_done, mode=self.mode_name, password=pw)
             task.start()
 
@@ -85,8 +96,6 @@ class PDFOperationsView(ctk.CTkFrame):
         if res and "Error" in str(res):
             messagebox.showerror("Task Failed", res)
         else:
-            # Succès : On active la pastille verte 🟢 sur TOUTES les cartes
             for card in self.scroll.winfo_children():
-                if hasattr(card, "mark_success"):
-                    card.mark_success()
+                if hasattr(card, "mark_success"): card.mark_success()
             messagebox.showinfo("Success", "Operation completed successfully!")
