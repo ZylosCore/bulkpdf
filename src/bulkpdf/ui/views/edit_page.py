@@ -58,14 +58,16 @@ class PdfEditorTab(ctk.CTkFrame):
         
         self.pdf_doc = fitz.open(pdf_path)
         
-        # GESTION DES PDF SÉCURISÉS PAR MOT DE PASSE
+        # SÉCURITÉ AUTHENTIFICATION PYMUPDF
         if self.pdf_doc.needs_pass:
             dialog = ctk.CTkInputDialog(text="Ce document est protégé. Entrez le mot de passe :", title="PDF Verrouillé")
             pwd = dialog.get_input()
+            auth_ok = False
             if pwd:
-                self.pdf_doc.authenticate(pwd)
-            if self.pdf_doc.needs_pass:
-                messagebox.showerror("Erreur", "Mot de passe incorrect ou annulation.")
+                auth_ok = self.pdf_doc.authenticate(pwd) > 0 # PyMuPDF renvoie >0 si succès
+            
+            if not auth_ok:
+                self.pdf_doc.close()
                 raise ValueError("Encrypted")
                 
         self.current_page_idx = 0
@@ -211,7 +213,7 @@ class PdfEditorTab(ctk.CTkFrame):
             
         elif mode == "text": self._create_text_input(cx, cy)
         elif mode == "draw": self.main_page.last_x, self.main_page.last_y = cx, cy
-        elif mode == "signature": self._add_signature(cx, cy) # <-- Corrigé ici
+        elif mode == "signature": self._add_signature(cx, cy)
         elif mode == "pipette":
             if self.current_pil_image:
                 try:
@@ -563,37 +565,42 @@ class EditPage(ctk.CTkFrame):
     # --- LOGIQUE DES ONGLETS ---
     def _open_file_dialog(self):
         p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
-        if p: 
-            name = Path(p).name
-            base_name = name
-            counter = 1
-            while name in self.editors:
-                name = f"{base_name} ({counter})"
-                counter += 1
-            
-            tab_frame = ctk.CTkFrame(self.tab_bar, fg_color="#44475a", corner_radius=4)
-            tab_frame.pack(side="left", padx=2, pady=2, fill="y")
-            
-            lbl = ctk.CTkLabel(tab_frame, text=name, font=(FONT_FAMILY, 12, "bold"), text_color="white")
-            lbl.pack(side="left", padx=(10, 5), pady=2)
-            lbl.bind("<Button-1>", lambda e, n=name: self.switch_tab(n))
-            
-            close_btn = ctk.CTkButton(tab_frame, text="✕", width=20, height=20, corner_radius=4, fg_color="transparent", hover_color="#ff4757", text_color="white", font=(FONT_FAMILY, 12, "bold"), command=lambda n=name: self.close_tab(n))
-            close_btn.pack(side="left", padx=(0, 5), pady=2)
-            
-            try:
-                editor = PdfEditorTab(self.editor_container, p, main_page=self)
-                self.editors[name] = {"frame": tab_frame, "lbl": lbl, "editor": editor}
-                self.switch_tab(name)
-            except Exception as e:
-                tab_frame.destroy()
-                if "Encrypted" not in str(e): 
-                    messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier :\n{e}")
+        if not p: return 
+        
+        name = Path(p).name
+        base_name = name
+        counter = 1
+        while name in self.editors:
+            name = f"{base_name} ({counter})"
+            counter += 1
+        
+        # BLINDAGE CONTRE LES CRASHS PYMUPDF
+        try:
+            editor = PdfEditorTab(self.editor_container, p, main_page=self)
+        except Exception as e:
+            if "Encrypted" not in str(e):
+                messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier :\n{e}")
+            return # IMPORTANT: On ne crée pas l'onglet UI si l'ouverture échoue
+        
+        tab_frame = ctk.CTkFrame(self.tab_bar, fg_color="#44475a", corner_radius=4)
+        tab_frame.pack(side="left", padx=2, pady=2, fill="y")
+        
+        lbl = ctk.CTkLabel(tab_frame, text=name, font=(FONT_FAMILY, 12, "bold"), text_color="white")
+        lbl.pack(side="left", padx=(10, 5), pady=2)
+        lbl.bind("<Button-1>", lambda e, n=name: self.switch_tab(n))
+        
+        close_btn = ctk.CTkButton(tab_frame, text="✕", width=20, height=20, corner_radius=4, fg_color="transparent", hover_color="#ff4757", text_color="white", font=(FONT_FAMILY, 12, "bold"), command=lambda n=name: self.close_tab(n))
+        close_btn.pack(side="left", padx=(0, 5), pady=2)
+        
+        self.editors[name] = {"frame": tab_frame, "lbl": lbl, "editor": editor}
+        self.switch_tab(name)
 
     def switch_tab(self, name):
         if self.active_tab_name and self.active_tab_name in self.editors:
             self.editors[self.active_tab_name]["editor"].pack_forget()
             self.editors[self.active_tab_name]["frame"].configure(fg_color="#44475a")
+        
+        if name not in self.editors: return
         
         self.active_tab_name = name
         self.editors[name]["frame"].configure(fg_color="#4a69bd") 
@@ -601,7 +608,6 @@ class EditPage(ctk.CTkFrame):
         self._sync_toolbar_with_selection()
 
     def close_tab(self, name):
-        # Sécurité pour éviter le KeyError si l'onglet a échoué à charger
         if name not in self.editors: return
         
         editor = self.editors[name]["editor"]
