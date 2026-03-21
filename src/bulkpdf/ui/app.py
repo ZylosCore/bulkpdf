@@ -34,7 +34,7 @@ class BulkPDFApp(ctk.CTk):
 
         self.title(t("app_title"))
         self.geometry("1100x750") 
-        self.minsize(900, 600)
+        self.minsize(1300, 800)
         
         ico_path = get_resource_path("logo.ico")
         png_path = get_resource_path("logo.png")
