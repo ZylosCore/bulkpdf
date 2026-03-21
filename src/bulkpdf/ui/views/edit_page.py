@@ -2,6 +2,7 @@ import customtkinter as ctk
 import fitz
 from PIL import Image, ImageTk
 from tkinter import Canvas, filedialog, colorchooser, Entry, Text, Menu, NW, ALL, messagebox
+import tkinter as tk
 import os
 import sys
 import io
@@ -19,6 +20,34 @@ def resource_path(relative_path):
     except Exception:
         base_path = Path(__file__).parent.parent.parent.parent
     return base_path / relative_path
+
+# --- NOUVELLE CLASSE : TOOLTIP AU SURVOL ---
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tw = None
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.widget.bind("<ButtonPress>", self.leave)
+
+    def enter(self, event=None):
+        if not self.text: return
+        x = self.widget.winfo_rootx() + 25
+        y = self.widget.winfo_rooty() + 25
+        self.tw = tk.Toplevel(self.widget)
+        self.tw.wm_overrideredirect(True)
+        self.tw.wm_geometry(f"+{x}+{y}")
+        
+        label = tk.Label(self.tw, text=self.text, justify='left',
+                         background="#2b2b2b", foreground="white", relief='flat', borderwidth=0,
+                         font=(FONT_FAMILY, 9, "normal"), padx=6, pady=3)
+        label.pack()
+
+    def leave(self, event=None):
+        if self.tw:
+            self.tw.destroy()
+            self.tw = None
 
 class EditPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -77,7 +106,7 @@ class EditPage(ctk.CTkFrame):
             return int(item[0]) if item else None
         return int(item) if item is not None else None
 
-    def _get_edit_icon(self, name, size=(12, 12)):
+    def _get_edit_icon(self, name, size=(14, 14)):
         try:
             paths = [
                 resource_path(os.path.join("src", "assets", "edit", f"{name}.png")),
@@ -96,15 +125,15 @@ class EditPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.toolbar = ctk.CTkFrame(self, height=38, fg_color=TOPBAR_COLOR, corner_radius=0, border_width=1, border_color=BORDER_COLOR)
+        self.toolbar = ctk.CTkFrame(self, height=42, fg_color=TOPBAR_COLOR, corner_radius=0, border_width=1, border_color=BORDER_COLOR)
         self.toolbar.grid(row=0, column=0, sticky="ew")
         self.toolbar.grid_propagate(False)
 
         container = ctk.CTkFrame(self.toolbar, fg_color="transparent")
         container.pack(side="left", padx=15, pady=5, fill="y")
 
-        self._create_btn(container, "open", f"{t('btn_open')} (Ctrl+O)", self._open_file_dialog)
-        self._create_btn(container, "save", f"{t('btn_save')} (Ctrl+S)", self.save_changes, is_accent=True)
+        self._create_btn(container, "open", f"Ouvrir (Ctrl+O)", self._open_file_dialog)
+        self._create_btn(container, "save", f"Sauvegarder (Ctrl+S)", self.save_changes) # Fond transparent conservé
         self._add_sep(container)
 
         self.tool_btns = {}
@@ -117,20 +146,20 @@ class EditPage(ctk.CTkFrame):
             ("color", "pipette", self.shortcuts["pipette"])
         ]
         for icon, mode, shortcut in tools:
-            btn = self._create_btn(container, icon, f"[{shortcut.upper()}]", lambda m=mode: self.set_tool(m))
+            btn = self._create_btn(container, icon, f"{mode.capitalize()} ({shortcut.upper()})", lambda m=mode: self.set_tool(m))
             self.tool_btns[mode] = btn
         
         self._add_sep(container)
-        self._create_btn(container, "rotate", f"({self.shortcuts['rotate'].upper()})", self._rotate_selected)
-        self._create_btn(container, "plus", f"({self.shortcuts['enlarge'].upper()})", lambda: self._change_item_size(1.1))
-        self._create_btn(container, "minus", f"({self.shortcuts['shrink'].upper()})", lambda: self._change_item_size(0.9))
-        self._create_btn(container, "trash", "(Suppr)", self._delete_selected)
+        self._create_btn(container, "rotate", f"Pivoter ({self.shortcuts['rotate'].upper()})", self._rotate_selected)
+        self._create_btn(container, "plus", f"Agrandir ({self.shortcuts['enlarge'].upper()})", lambda: self._change_item_size(1.1))
+        self._create_btn(container, "minus", f"Réduire ({self.shortcuts['shrink'].upper()})", lambda: self._change_item_size(0.9))
+        self._create_btn(container, "trash", "Supprimer (Suppr)", self._delete_selected)
         
         self._add_sep(container)
         
         self.font_menu = ctk.CTkComboBox(
             container, values=["Arial", "Helvetica", "Times New Roman", "Courier New", "Calibri", "Cambria"], 
-            width=130, height=24, corner_radius=4, border_color=BORDER_COLOR, font=(FONT_FAMILY, SIZE_MAIN), 
+            width=130, height=26, corner_radius=4, border_color=BORDER_COLOR, font=(FONT_FAMILY, SIZE_MAIN), 
             command=self._update_font_family
         )
         self.font_menu.set("Arial")
@@ -138,14 +167,21 @@ class EditPage(ctk.CTkFrame):
 
         self.size_menu = ctk.CTkComboBox(
             container, values=["10", "12", "14", "16", "18", "24", "32", "48", "64"], 
-            width=65, height=24, corner_radius=4, border_color=BORDER_COLOR, font=(FONT_FAMILY, SIZE_MAIN), 
+            width=70, height=26, corner_radius=4, border_color=BORDER_COLOR, font=(FONT_FAMILY, SIZE_MAIN), 
             command=self._update_font_size
         )
         self.size_menu.set("14")
         self.size_menu.pack(side="left", padx=5)
         
+        try:
+            self.size_menu._entry.bind("<Return>", lambda e: self._update_font_size())
+            self.size_menu._entry.bind("<FocusOut>", lambda e: self._update_font_size())
+        except:
+            self.size_menu.bind("<Return>", lambda e: self._update_font_size())
+        
         self.color_btn = ctk.CTkButton(container, text="", width=20, height=20, fg_color=self.current_color, command=self._choose_color, corner_radius=10)
         self.color_btn.pack(side="left", padx=5)
+        ToolTip(self.color_btn, "Changer de couleur")
 
         self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, corner_radius=0, scrollbar_button_color=SCROLLBAR_COLOR, scrollbar_button_hover_color=SCROLLBAR_HOVER)
         self.scroll_canvas.grid(row=1, column=0, sticky="nsew")
@@ -169,21 +205,26 @@ class EditPage(ctk.CTkFrame):
         self.zoom_label.pack(side="left")
         self._create_nav_btn(zoom_cnt, "plus", lambda: self._change_zoom(0.1))
 
-    def _create_btn(self, parent, icon_name, tooltip, command, is_accent=False):
+    # --- RETOUR À L'ANCIEN STYLE (Petit bouton + Tooltip au survol) ---
+    def _create_btn(self, parent, icon_name, tooltip_text, command, is_accent=False):
         icon = self._get_edit_icon(icon_name)
-        text_f = "" if icon else tooltip
-        btn = ctk.CTkButton(parent, text=text_f, image=icon, width=24, height=24, corner_radius=4, fg_color="transparent" if not is_accent else "#4a69bd", command=command)
-        btn.pack(side="left", padx=2)
+        # width=24, text="" pour cacher le texte par défaut
+        btn = ctk.CTkButton(
+            parent, text="", image=icon, width=24, height=24, 
+            corner_radius=4, fg_color="transparent" if not is_accent else "#4a69bd", 
+            command=command
+        )
+        btn.pack(side="left", padx=3)
+        ToolTip(btn, tooltip_text) # Ajout du ToolTip au survol
         return btn
 
     def _create_nav_btn(self, parent, icon_name, command):
         icon = self._get_edit_icon(icon_name, size=(12, 12))
-        ctk.CTkButton(parent, text="", image=icon, width=22, height=22, corner_radius=4, fg_color="transparent", command=command).pack(side="left", padx=2)
+        ctk.CTkButton(parent, text="", image=icon, width=24, height=24, corner_radius=4, fg_color="transparent", command=command).pack(side="left", padx=2)
 
     def _add_sep(self, parent):
-        ctk.CTkFrame(parent, width=1, height=16, fg_color=BORDER_COLOR).pack(side="left", padx=8)
+        ctk.CTkFrame(parent, width=1, height=18, fg_color=BORDER_COLOR).pack(side="left", padx=8)
 
-    # --- SYNCHRONISATION UI ---
     def _sync_toolbar_with_selection(self):
         if len(self.selected_items) == 1:
             item_id = self.selected_items[0]
@@ -202,16 +243,12 @@ class EditPage(ctk.CTkFrame):
                 self.current_color = c
                 self.color_btn.configure(fg_color=c)
 
-    # --- CORRECTION DE LA POLICE PYMUPDF ---
     def _get_pymupdf_font(self, tk_font_name):
-        """Convertit n'importe quelle police Tkinter en une des 3 polices sécurisées PyMuPDF (Base-14)"""
         if not tk_font_name: return "helv"
         lower = tk_font_name.lower()
-        if "times" in lower or "cambria" in lower: 
-            return "tiro" # Times-Roman
-        if "courier" in lower or "mono" in lower: 
-            return "cour" # Courier
-        return "helv" # Helvetica par défaut (Arial, Calibri, etc.)
+        if "times" in lower or "cambria" in lower: return "tiro" 
+        if "courier" in lower or "mono" in lower: return "cour"
+        return "helv"
 
     def _update_font_family(self, v):
         for item in self.selected_items:
@@ -222,9 +259,12 @@ class EditPage(ctk.CTkFrame):
                 self.item_original_fonts[item_id] = self._get_pymupdf_font(v)
         self._draw_highlights()
 
-    def _update_font_size(self, v): 
+    def _update_font_size(self, v=None): 
+        if v is None:
+            v = self.size_menu.get()
         try:
-            self.current_real_font_size = float(v)
+            v_str = str(v).replace(',', '.')
+            self.current_real_font_size = float(v_str)
             for item in self.selected_items:
                 item_id = self._get_id(item)
                 if "text_obj" in self.canvas.gettags(item_id):
@@ -233,9 +273,9 @@ class EditPage(ctk.CTkFrame):
                     f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
                     self.canvas.itemconfig(item_id, font=(f.actual("family"), new_tk_size))
             self._draw_highlights()
-        except ValueError: pass
+        except ValueError: 
+            pass
 
-    # --- RACCOURCIS CLAVIERS ---
     def _setup_bindings(self):
         self.canvas.bind("<Button-1>", self._on_click)
         self.canvas.bind("<B1-Motion>", self._on_drag)
@@ -286,7 +326,6 @@ class EditPage(ctk.CTkFrame):
         if keysym in ("delete", "backspace"):
             self._delete_selected()
 
-    # --- CANVAS ---
     def _create_text_input(self, x, y, initial_text="", font_family=None, real_font_size=None, original_pdf_font=None, box_width=None, box_height=None, is_multiline=False):
         if self.active_entry_window: return 
         
@@ -297,7 +336,6 @@ class EditPage(ctk.CTkFrame):
         self._is_finalizing = False 
         
         def finalize(event=None):
-            # Prévention des erreurs Tkinter si le widget n'existe plus
             if not self.canvas.winfo_exists(): return
             if not self.canvas.find_withtag(window_id): return
             if self._is_finalizing: return
@@ -318,7 +356,6 @@ class EditPage(ctk.CTkFrame):
                 self._draw_highlights()
                 self._sync_toolbar_with_selection()
 
-            # Utilisation de formattage sûr pour le after
             if self.canvas.winfo_exists():
                 self.after(200, lambda: setattr(self, '_is_finalizing', False))
 
@@ -734,7 +771,6 @@ class EditPage(ctk.CTkFrame):
                     rgb = tuple(int(hex_color[i:i+2], 16)/255.0 for i in (0, 2, 4))
                     angle = int(data.get("angle", 0))
                     
-                    # Le secret de la stabilité : On map la police Tkinter à la police PyMuPDF universelle
                     pdf_font = self._get_pymupdf_font(data.get("font_family", "Arial"))
                     
                     page.insert_text((coords[0], coords[1] + (pdf_font_size * 0.75)), data["text"], fontname=pdf_font, fontsize=pdf_font_size, color=rgb, rotate=angle)
