@@ -4,10 +4,9 @@ from pathlib import Path
 from datetime import datetime
 from .cards import FileCard
 from ...pdf_engine import PDFTask
-from ..theme import (BG_COLOR, BORDER_COLOR, TEXT_LOW, TEXT_TITLE, FONT_FAMILY,
+from ..theme import (CARD_COLOR, BORDER_COLOR, TEXT_LOW, TEXT_TITLE, FONT_FAMILY,
                      CORNER_RADIUS, BTN_PRIMARY, BTN_PRIMARY_HOVER, 
-                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SCROLLBAR_COLOR, SCROLLBAR_HOVER,
-                     SIZE_TITLE, SIZE_MAIN)
+                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SIZE_TITLE, SIZE_MAIN)
 
 class PDFOperationsView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -15,36 +14,34 @@ class PDFOperationsView(ctk.CTkFrame):
         self.files_paths = []
         self.mode_name = "processed"
         
-        # Titre réduit avec SIZE_TITLE
         self.label = ctk.CTkLabel(self, text="PDF Operation", font=(FONT_FAMILY, SIZE_TITLE, "bold"), text_color=TEXT_TITLE)
-        self.label.pack(pady=(0, 10), anchor="w")
+        self.label.pack(pady=(20, 10), padx=40, anchor="w")
         
         self.scroll = ctk.CTkScrollableFrame(
-            self, fg_color=BG_COLOR, border_width=1, border_color=BORDER_COLOR, 
-            corner_radius=CORNER_RADIUS, scrollbar_button_color=SCROLLBAR_COLOR,
-            scrollbar_button_hover_color=SCROLLBAR_HOVER
+            self, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, 
+            corner_radius=CORNER_RADIUS
         )
-        self.scroll.pack(fill="both", expand=True)
+        self.scroll.pack(fill="both", expand=True, padx=40, pady=(0, 10))
         
-        # Label "No files" réduit
         self.empty_label = ctk.CTkLabel(self.scroll, text="No files selected", font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_LOW)
         self.empty_label.pack(pady=60)
 
         self.progress = ctk.CTkProgressBar(self, progress_color=BTN_PRIMARY, height=4, corner_radius=2)
 
         self.action_bar = ctk.CTkFrame(self, fg_color="transparent")
-        self.action_bar.pack(fill="x", pady=10)
+        self.action_bar.pack(fill="x", pady=(0, 20), padx=40)
         
-        # Boutons : police plus petite (SIZE_MAIN), moins hauts (height=30)
+        # MODIF: Reduced height to 30, width to 100
         self.add_btn = ctk.CTkButton(
-            self.action_bar, text="+ Add Files", width=120, height=30, 
+            self.action_bar, text="+ Add Files", width=100, height=30, 
             corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
             fg_color=BTN_PRIMARY, hover_color=BTN_PRIMARY_HOVER, command=self.browse_files
         )
         self.add_btn.pack(side="left")
 
+        # MODIF: Reduced height to 30, width to 120, forced white text
         self.run_btn = ctk.CTkButton(
-            self.action_bar, text="Run Task", width=120, height=30, 
+            self.action_bar, text="Run Task", width=120, height=30, text_color="#FFFFFF",
             corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
             fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, command=self.execute_task
         )
@@ -66,8 +63,13 @@ class PDFOperationsView(ctk.CTkFrame):
                     FileCard(self.scroll, p, self.remove_file).pack(fill="x", padx=10, pady=4)
 
     def remove_file(self, card):
-        if card.file_path in self.files_paths: self.files_paths.remove(card.file_path)
+        if card.file_path in self.files_paths: 
+            self.files_paths.remove(card.file_path)
         card.destroy()
+        
+        if not self.files_paths:
+            self.empty_label = ctk.CTkLabel(self.scroll, text="No files selected", font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_LOW)
+            self.empty_label.pack(pady=60)
 
     def execute_task(self):
         if not self.files_paths:
@@ -83,7 +85,7 @@ class PDFOperationsView(ctk.CTkFrame):
 
         out = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile=self.get_smart_filename())
         if out:
-            self.progress.pack(fill="x", pady=(0, 10))
+            self.progress.pack(fill="x", pady=(0, 10), padx=40)
             self.progress.set(0.1) 
             task = PDFTask(self.files_paths, out, self.on_progress, self.on_done, mode=self.mode_name, password=pw)
             task.start()

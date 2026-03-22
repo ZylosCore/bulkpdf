@@ -9,8 +9,7 @@ from .views.sidebar import Sidebar
 from .views.topbar import Topbar
 from .views.merge_page import MergePage
 from .views.compress_page import CompressPage
-from .views.protect_page import ProtectPage
-from .views.unlock_page import UnlockPage
+from .views.security_page import SecurityPage # Modif 2: Replacing Protect/Unlock
 from .views.extract_page import ExtractPage
 from .views.settings_page import SettingsPage
 from .views.edit_page import EditPage
@@ -53,19 +52,18 @@ class BulkPDFApp(ctk.CTk):
         self.sidebar = Sidebar(self, selection_callback=self.show_page)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
 
-        # Application de BG_COLOR pour le fond principal au lieu de transparent
         self.main_container = ctk.CTkFrame(self, fg_color=BG_COLOR, corner_radius=0)
         self.main_container.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
         self.main_container.grid_columnconfigure(0, weight=1)
         self.main_container.grid_rowconfigure(0, weight=1)
 
+        # Modif 2: Updated routing mapping
         self.pages = {
             "merge": MergePage(self.main_container),
             "extract": ExtractPage(self.main_container),
             "edit": EditPage(self.main_container),
             "compress": CompressPage(self.main_container),
-            "protect": ProtectPage(self.main_container),
-            "unlock": UnlockPage(self.main_container),
+            "security": SecurityPage(self.main_container), # New combined page
             "settings": SettingsPage(self.main_container)
         }
 

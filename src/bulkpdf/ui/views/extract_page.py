@@ -6,8 +6,7 @@ import zipfile
 from ..i18n import t
 from ..theme import (BG_COLOR, CARD_COLOR, BORDER_COLOR, TEXT_TITLE, FONT_FAMILY, TEXT_LOW,
                      CORNER_RADIUS, BTN_PRIMARY, BTN_PRIMARY_HOVER, 
-                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SCROLLBAR_COLOR, SCROLLBAR_HOVER, 
-                     SIZE_TITLE, SIZE_MAIN, TEXT_MAIN)
+                     BTN_SUCCESS, BTN_SUCCESS_HOVER, SIZE_TITLE, SIZE_MAIN, TEXT_MAIN, TABVIEW_KWARGS)
 
 class ExtractPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -21,69 +20,69 @@ class ExtractPage(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        header = ctk.CTkLabel(self, text=t("extract_title"), font=(FONT_FAMILY, SIZE_TITLE, "bold"), text_color=TEXT_TITLE)
-        header.grid(row=0, column=0, pady=(20, 10), padx=20, sticky="w")
+        header = ctk.CTkLabel(self, text="Split & Extract PDF", font=(FONT_FAMILY, SIZE_TITLE, "bold"), text_color=TEXT_TITLE)
+        header.grid(row=0, column=0, pady=(20, 10), padx=40, sticky="w")
 
-        self.main_scroll = ctk.CTkScrollableFrame(
-            self, fg_color="transparent",
-            scrollbar_button_color=SCROLLBAR_COLOR,
-            scrollbar_button_hover_color=SCROLLBAR_HOVER
-        )
-        self.main_scroll.grid(row=1, column=0, sticky="nsew", padx=20)
-        self.main_scroll.grid_columnconfigure(0, weight=1)
+        self.tabs = ctk.CTkTabview(self, **TABVIEW_KWARGS)
+        self.tabs.grid(row=1, column=0, sticky="nsew", padx=40, pady=(0, 20))
+        
+        self.tabs.add("Extract Ranges")
+        self.tabs.add("Split PDF")
 
-        # CARTE 1 : Fichier
-        card_file = ctk.CTkFrame(self.main_scroll, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=CORNER_RADIUS)
-        card_file.grid(row=0, column=0, sticky="ew", pady=(0, 20))
-        card_file.grid_columnconfigure(0, weight=1)
+        self._build_header_info()
+        self._build_extract_tab()
+        self._build_split_tab()
 
-        self.file_label = ctk.CTkLabel(card_file, text=t("extract_no_file"), font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_MAIN)
-        self.file_label.grid(row=0, column=0, pady=(20, 5))
-
-        self.info_label = ctk.CTkLabel(card_file, text="", text_color=TEXT_LOW, font=(FONT_FAMILY, SIZE_MAIN))
-        self.info_label.grid(row=1, column=0, pady=(0, 15))
-
+    def _build_header_info(self):
+        file_frame = ctk.CTkFrame(self, fg_color="transparent")
+        file_frame.grid(row=0, column=0, sticky="e", padx=40, pady=(20, 10))
+        
+        self.file_label = ctk.CTkLabel(file_frame, text="No PDF loaded", text_color=TEXT_LOW, font=(FONT_FAMILY, SIZE_MAIN))
+        self.file_label.pack(side="left", padx=15)
+        
+        # MODIF: Reduced height
         btn_select = ctk.CTkButton(
-            card_file, text=t("btn_choose_pdf"), width=150, height=32, corner_radius=CORNER_RADIUS,
+            file_frame, text="Browse File", width=100, height=28, corner_radius=CORNER_RADIUS,
             font=(FONT_FAMILY, SIZE_MAIN, "bold"), fg_color=BTN_PRIMARY, hover_color=BTN_PRIMARY_HOVER,
             command=self._select_pdf
         )
-        btn_select.grid(row=2, column=0, pady=(0, 20))
+        btn_select.pack(side="right")
 
-        # CARTE 2 : Paramètres
-        self.card_options = ctk.CTkFrame(self.main_scroll, fg_color=CARD_COLOR, border_width=1, border_color=BORDER_COLOR, corner_radius=CORNER_RADIUS)
-        self.card_options.grid(row=1, column=0, sticky="ew", pady=0)
-        self.card_options.grid_columnconfigure(0, weight=1)
+    def _build_extract_tab(self):
+        tab = self.tabs.tab("Extract Ranges")
+        tab.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(tab, text="Pages to extract (e.g., 1, 3, 5-10):", font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_TITLE).pack(anchor="w", pady=(20, 5), padx=20)
+        # MODIF: Reduced entry box size
+        self.entry_ranges = ctk.CTkEntry(tab, placeholder_text="1-5, 8, 11-13", width=250, height=30, corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN))
+        self.entry_ranges.pack(anchor="w", padx=20)
+
+        ctk.CTkLabel(tab, text="Format:", font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_TITLE).pack(anchor="w", pady=(20, 5), padx=20)
+        ctk.CTkRadioButton(tab, text="Save as single PDF", variable=self.output_mode, value="pdf", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", padx=20, pady=5)
+        ctk.CTkRadioButton(tab, text="Save as ZIP (Individual pages)", variable=self.output_mode, value="zip", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", padx=20, pady=5)
+
+        # MODIF: Reduced button size
+        btn_run = ctk.CTkButton(tab, text="Extract Pages", width=150, height=30, text_color="#FFFFFF", fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, font=(FONT_FAMILY, SIZE_MAIN, "bold"), command=self._extract_custom)
+        btn_run.pack(pady=(30, 10))
+
+    def _build_split_tab(self):
+        tab = self.tabs.tab("Split PDF")
+        tab.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(tab, text="Split document into multiple files", font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_TITLE).pack(anchor="w", pady=(20, 5), padx=20)
         
-        range_frame = ctk.CTkFrame(self.card_options, fg_color="transparent")
-        range_frame.pack(pady=(20, 15))
-
-        ctk.CTkLabel(range_frame, text=t("extract_from"), font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).grid(row=0, column=0, padx=5)
-        self.entry_start = ctk.CTkEntry(range_frame, width=60, height=28, corner_radius=CORNER_RADIUS, border_color=BORDER_COLOR, justify="center")
-        self.entry_start.grid(row=0, column=1, padx=5)
+        split_opts = ctk.CTkFrame(tab, fg_color="transparent")
+        split_opts.pack(fill="x", padx=20, pady=10)
         
-        ctk.CTkLabel(range_frame, text=t("extract_to"), font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).grid(row=0, column=2, padx=5)
-        self.entry_end = ctk.CTkEntry(range_frame, width=60, height=28, corner_radius=CORNER_RADIUS, border_color=BORDER_COLOR, justify="center")
-        self.entry_end.grid(row=0, column=3, padx=5)
+        ctk.CTkLabel(split_opts, text="Split every", font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).pack(side="left")
+        self.split_every_entry = ctk.CTkEntry(split_opts, width=50, height=28, justify="center", font=(FONT_FAMILY, SIZE_MAIN))
+        self.split_every_entry.insert(0, "1")
+        self.split_every_entry.pack(side="left", padx=15)
+        ctk.CTkLabel(split_opts, text="pages.", font=(FONT_FAMILY, SIZE_MAIN), text_color=TEXT_MAIN).pack(side="left")
 
-        mode_frame = ctk.CTkFrame(self.card_options, fg_color="transparent")
-        mode_frame.pack(pady=(0, 20))
-
-        ctk.CTkLabel(mode_frame, text=t("extract_format"), font=(FONT_FAMILY, SIZE_MAIN, "bold"), text_color=TEXT_MAIN).pack(anchor="w", pady=(0, 10))
-        ctk.CTkRadioButton(mode_frame, text=t("format_pdf"), variable=self.output_mode, value="pdf", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", pady=5)
-        ctk.CTkRadioButton(mode_frame, text=t("format_zip"), variable=self.output_mode, value="zip", font=(FONT_FAMILY, SIZE_MAIN)).pack(anchor="w", pady=5)
-
-        action_frame = ctk.CTkFrame(self, fg_color="transparent")
-        action_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=20)
-        action_frame.grid_columnconfigure(0, weight=1)
-
-        self.btn_extract = ctk.CTkButton(
-            action_frame, text=t("btn_extract_save"), 
-            fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, 
-            width=200, height=36, corner_radius=CORNER_RADIUS, font=(FONT_FAMILY, SIZE_MAIN, "bold"),
-            state="disabled", command=self._extract_pdf
-        )
-        self.btn_extract.grid(row=0, column=0)
+        # MODIF: Reduced button size
+        btn_run = ctk.CTkButton(tab, text="Split Document", width=150, height=30, text_color="#FFFFFF", fg_color=BTN_SUCCESS, hover_color=BTN_SUCCESS_HOVER, font=(FONT_FAMILY, SIZE_MAIN, "bold"), command=self._split_pdf)
+        btn_run.pack(pady=(30, 10))
 
     def _select_pdf(self):
         path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
@@ -93,56 +92,81 @@ class ExtractPage(ctk.CTkFrame):
                 self.total_pages = len(doc)
                 doc.close()
                 self.pdf_path = path
-                self.file_label.configure(text=f"📄 {os.path.basename(path)}")
-                self.info_label.configure(text=t("extract_ready").format(self.total_pages))
-                self.entry_start.delete(0, 'end'); self.entry_start.insert(0, "1")
-                self.entry_end.delete(0, 'end'); self.entry_end.insert(0, str(self.total_pages))
-                self.btn_extract.configure(state="normal")
+                self.file_label.configure(text=f"📄 {os.path.basename(path)} ({self.total_pages} pages)")
             except Exception as e:
-                messagebox.showerror(t("error"), str(e))
+                messagebox.showerror("Error", str(e))
 
-    def _extract_pdf(self):
+    def _parse_ranges(self, text):
+        pages = set()
+        for part in text.split(','):
+            part = part.strip()
+            if not part: continue
+            if '-' in part:
+                start, end = part.split('-')
+                pages.update(range(int(start)-1, int(end)))
+            else:
+                pages.add(int(part)-1)
+        return sorted(list(pages))
+
+    def _extract_custom(self):
         if not self.pdf_path: return
-
         try:
-            start_page = int(self.entry_start.get())
-            end_page = int(self.entry_end.get())
-        except ValueError:
-            messagebox.showwarning(t("warning"), t("extract_err_num"))
-            return
-            
-        if start_page < 1 or end_page > self.total_pages or start_page > end_page:
-            messagebox.showwarning(t("warning"), t("extract_err_range").format(self.total_pages))
+            pages_to_extract = self._parse_ranges(self.entry_ranges.get())
+            if not pages_to_extract: raise ValueError("Invalid range.")
+        except Exception:
+            messagebox.showwarning("Warning", "Invalid format. Use something like: 1, 3-5")
             return
 
         mode = self.output_mode.get()
-        original_name = os.path.splitext(os.path.basename(self.pdf_path))[0]
-
         if mode == "pdf":
-            save_path = filedialog.asksaveasfilename(initialfile=f"{original_name}_extrait.pdf", defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
-            if not save_path: return
-            try:
+            out = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile="Extracted.pdf")
+            if out:
                 doc = fitz.open(self.pdf_path)
-                new_doc = fitz.open() 
-                new_doc.insert_pdf(doc, from_page=start_page - 1, to_page=end_page - 1)
-                new_doc.save(save_path)
+                new_doc = fitz.open()
+                for p in pages_to_extract:
+                    if 0 <= p < self.total_pages:
+                        new_doc.insert_pdf(doc, from_page=p, to_page=p)
+                new_doc.save(out)
                 new_doc.close(); doc.close()
-                messagebox.showinfo(t("success"), t("extract_success_pdf"))
-            except Exception as e:
-                messagebox.showerror(t("error"), str(e))
-
-        elif mode == "zip":
-            save_path = filedialog.asksaveasfilename(initialfile=f"{original_name}_pages.zip", defaultextension=".zip", filetypes=[("ZIP", "*.zip")])
-            if not save_path: return
-            try:
+                messagebox.showinfo("Success", "Pages extracted successfully!")
+        else:
+            out = filedialog.asksaveasfilename(defaultextension=".zip", initialfile="Pages.zip")
+            if out:
                 doc = fitz.open(self.pdf_path)
-                with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                    for i in range(start_page - 1, end_page):
-                        new_doc = fitz.open()
-                        new_doc.insert_pdf(doc, from_page=i, to_page=i)
-                        zf.writestr(f"{original_name}_Page_{i+1}.pdf", new_doc.tobytes())
-                        new_doc.close()
+                with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    for p in pages_to_extract:
+                        if 0 <= p < self.total_pages:
+                            new_doc = fitz.open()
+                            new_doc.insert_pdf(doc, from_page=p, to_page=p)
+                            zf.writestr(f"Page_{p+1}.pdf", new_doc.tobytes())
+                            new_doc.close()
                 doc.close()
-                messagebox.showinfo(t("success"), t("extract_success_zip"))
-            except Exception as e:
-                messagebox.showerror(t("error"), str(e))
+                messagebox.showinfo("Success", "ZIP created successfully!")
+
+    def _split_pdf(self):
+        if not self.pdf_path: return
+        try:
+            step = int(self.split_every_entry.get())
+            if step < 1: raise ValueError
+        except:
+            messagebox.showwarning("Warning", "Please enter a valid positive number.")
+            return
+
+        out_dir = filedialog.askdirectory(title="Select Output Folder")
+        if not out_dir: return
+
+        try:
+            doc = fitz.open(self.pdf_path)
+            base_name = os.path.splitext(os.path.basename(self.pdf_path))[0]
+            
+            for start in range(0, self.total_pages, step):
+                end = min(start + step - 1, self.total_pages - 1)
+                new_doc = fitz.open()
+                new_doc.insert_pdf(doc, from_page=start, to_page=end)
+                new_doc.save(os.path.join(out_dir, f"{base_name}_{start+1}-{end+1}.pdf"))
+                new_doc.close()
+            
+            doc.close()
+            messagebox.showinfo("Success", "Document split successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))

@@ -11,12 +11,13 @@ import tkinter.font as tkFont
 from datetime import datetime
 from pathlib import Path
 from ..i18n import t  
+# Import nettoyé : on retire SCROLLBAR_COLOR et SCROLLBAR_HOVER
 from ..theme import (BG_COLOR, TOPBAR_COLOR, BORDER_COLOR, TEXT_MAIN, FONT_FAMILY, 
-                     CORNER_RADIUS, SCROLLBAR_COLOR, SCROLLBAR_HOVER, SIZE_MAIN)
+                     CORNER_RADIUS, SIZE_MAIN)
 
 def resource_path(relative_path):
     try:
-        base_path = Path(sys._MEIPASS)
+        base_path = Path(sys._MEIPASS) # type: ignore
     except Exception:
         base_path = Path(__file__).parent.parent.parent.parent
     return base_path / relative_path
@@ -101,7 +102,8 @@ class PdfEditorTab(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, corner_radius=0, scrollbar_button_color=SCROLLBAR_COLOR, scrollbar_button_hover_color=SCROLLBAR_HOVER)
+        # Retrait des couleurs manuelles de scrollbar pour utiliser celles du thème par défaut
+        self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, corner_radius=0)
         self.scroll_canvas.grid(row=0, column=0, sticky="nsew")
         self.canvas = Canvas(self.scroll_canvas, bg="white", bd=0, highlightthickness=0)
 
@@ -137,7 +139,7 @@ class PdfEditorTab(ctk.CTkFrame):
     def _show_page(self):
         page = self.pdf_doc[self.current_page_idx]
         pix = page.get_pixmap(matrix=fitz.Matrix(self.zoom_level, self.zoom_level))
-        self.current_pil_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        self.current_pil_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples) # type: ignore
         self.tk_img = ImageTk.PhotoImage(self.current_pil_image)
         self.canvas.config(width=pix.width, height=pix.height)
         if not self.canvas.winfo_ismapped(): self.canvas.pack(pady=30)
@@ -217,14 +219,14 @@ class PdfEditorTab(ctk.CTkFrame):
         elif mode == "pipette":
             if self.current_pil_image:
                 try:
-                    r, g, b = self.current_pil_image.getpixel((int(cx), int(cy)))
+                    r, g, b = self.current_pil_image.getpixel((int(cx), int(cy))) # type: ignore
                     hex_c = f"#{r:02x}{g:02x}{b:02x}"
                     self.main_page.current_color = hex_c
                     self.main_page.color_btn.configure(fg_color=hex_c)
                     for item in self.selected_items:
-                        tags = self.canvas.gettags(item)
+                        tags = self.canvas.gettags(item) # type: ignore
                         if "text_obj" in tags or "draw_line" in tags:
-                            self.canvas.itemconfig(item, fill=hex_c)
+                            self.canvas.itemconfig(item, fill=hex_c) # type: ignore
                             self.is_modified = True
                     self.main_page.set_tool("select")
                 except: pass
@@ -281,7 +283,6 @@ class PdfEditorTab(ctk.CTkFrame):
                 menu.add_command(label="Modifier le paragraphe", command=lambda: self._edit_paragraph(self.pdf_selection_bbox))
                 menu.tk_popup(event.x_root, event.y_root)
 
-    # --- LA FONCTION MANQUANTE RÉINTÉGRÉE ---
     def _edit_paragraph(self, canvas_bbox):
         if self.current_pdf_selection_rect:
             self.canvas.delete(self.current_pdf_selection_rect); self.current_pdf_selection_rect = None
@@ -350,8 +351,8 @@ class PdfEditorTab(ctk.CTkFrame):
             if self._is_finalizing: return
             self._is_finalizing = True
             
-            if is_multiline: content = entry.get("1.0", "end-1c").strip()
-            else: content = entry.get().strip()
+            if is_multiline: content = entry.get("1.0", "end-1c").strip() # type: ignore
+            else: content = entry.get().strip() # type: ignore
                 
             self.canvas.delete(window_id)
             self.active_entry_window = None
@@ -413,9 +414,9 @@ class PdfEditorTab(ctk.CTkFrame):
         try:
             words = page.get_text("words"); clicked_word = None
             for w in words:
-                if (w[0] - 2) <= pdf_x <= (w[2] + 2) and (w[1] - 2) <= pdf_y <= (w[3] + 2): clicked_word = w; break
+                if (w[0] - 2) <= pdf_x <= (w[2] + 2) and (w[1] - 2) <= pdf_y <= (w[3] + 2): clicked_word = w; break # type: ignore
             if not clicked_word: return None
-            ff, opf, fs, col = self._get_pdf_font_info(page, (clicked_word[0] + clicked_word[2])/2, (clicked_word[1] + clicked_word[3])/2)
+            ff, opf, fs, col = self._get_pdf_font_info(page, (clicked_word[0] + clicked_word[2])/2, (clicked_word[1] + clicked_word[3])/2) # type: ignore
             return {"text": clicked_word[4], "bbox": (clicked_word[0], clicked_word[1], clicked_word[2], clicked_word[3]), "font_family": ff, "original_pdf_font": opf, "font_size": fs, "color": col}
         except: return None
 
@@ -426,13 +427,13 @@ class PdfEditorTab(ctk.CTkFrame):
         if not selected_words: return None
         text = page.get_textbox(fitz.Rect(rx0, ry0, rx1, ry1))
         if not text.strip(): return None
-        ff, opf, fs, col = self._get_pdf_font_info(page, (selected_words[0][0]+selected_words[0][2])/2, (selected_words[0][1]+selected_words[0][3])/2)
+        ff, opf, fs, col = self._get_pdf_font_info(page, (selected_words[0][0]+selected_words[0][2])/2, (selected_words[0][1]+selected_words[0][3])/2) # type: ignore
         return {"text": text, "bbox": (min(w[0] for w in selected_words), min(w[1] for w in selected_words), max(w[2] for w in selected_words), max(w[3] for w in selected_words)), "font_family": ff, "original_pdf_font": opf, "font_size": fs, "color": col}
 
     def _save_current_page_state(self):
         current_items = []; ratio = 1 / self.zoom_level 
         for item in self.canvas.find_withtag("editable"):
-            item_id = self._get_id(item); tags = self.canvas.gettags(item_id); coords = self.canvas.coords(item_id)
+            item_id = self._get_id(item); tags = self.canvas.gettags(item_id); coords = self.canvas.coords(item_id) # type: ignore
             real_coords = [c * ratio for c in coords]; data = {"tags": tags, "coords": real_coords}
             if "text_obj" in tags:
                 f = tkFont.Font(font=self.canvas.itemcget(item_id, "font"))
@@ -561,10 +562,9 @@ class EditPage(ctk.CTkFrame):
         ToolTip(self.color_btn, "Changer de couleur")
 
         # NOUVEAU SYSTÈME D'ONGLETS SANS SCROLLBAR
-        # On utilise une Frame normale au lieu d'une ScrollableFrame
         self.tab_bar = ctk.CTkFrame(self, height=36, fg_color="#2b2b2b", corner_radius=0, border_width=0)
         self.tab_bar.grid(row=1, column=0, sticky="ew")
-        self.tab_bar.grid_propagate(False) # Force la hauteur à 36px
+        self.tab_bar.grid_propagate(False) 
 
         self.editor_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self.editor_container.grid(row=2, column=0, sticky="nsew")
