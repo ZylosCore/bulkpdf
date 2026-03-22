@@ -1,0 +1,31 @@
+# Python
+from math import dist
+from pdb import run
+
+
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# PyInstaller & Build
+build/
+dist/
+*.spec
+run.py
+
+# Inno Setup
+Output/
+
+# IDE
+.vscode/
+.idea/
+
+build/
+dist/
+Output/
+*.spec
+run.py
+
+log.txt

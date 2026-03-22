@@ -9,7 +9,7 @@ from .views.sidebar import Sidebar
 from .views.topbar import Topbar
 from .views.merge_page import MergePage
 from .views.compress_page import CompressPage
-from .views.security_page import SecurityPage # Modif 2: Replacing Protect/Unlock
+from .views.security_page import SecurityPage
 from .views.extract_page import ExtractPage
 from .views.settings_page import SettingsPage
 from .views.edit_page import EditPage
@@ -29,7 +29,7 @@ class BulkPDFApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        ctk.set_appearance_mode("System")
+        ctk.set_appearance_mode("White")
 
         self.title(t("app_title"))
         self.geometry("1100x750") 
