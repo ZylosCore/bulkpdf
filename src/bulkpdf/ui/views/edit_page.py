@@ -11,9 +11,8 @@ import tkinter.font as tkFont
 from datetime import datetime
 from pathlib import Path
 from ..i18n import t  
-# Import nettoyé : on retire SCROLLBAR_COLOR et SCROLLBAR_HOVER
-from ..theme import (BG_COLOR, TOPBAR_COLOR, BORDER_COLOR, TEXT_MAIN, FONT_FAMILY, 
-                     CORNER_RADIUS, SIZE_MAIN)
+from ..theme import (BG_COLOR, CARD_COLOR, TOPBAR_COLOR, BORDER_COLOR, TEXT_MAIN, FONT_FAMILY, 
+                     CORNER_RADIUS, SIZE_MAIN, ACCENT_PRIMARY)
 
 def resource_path(relative_path):
     try:
@@ -59,7 +58,7 @@ class PdfEditorTab(ctk.CTkFrame):
         
         self.pdf_doc = fitz.open(pdf_path)
         
-        # SÉCURITÉ AUTHENTIFICATION PYMUPDF
+        # SÉCURITÉ AUTHENTIFICATION
         if self.pdf_doc.needs_pass:
             dialog = ctk.CTkInputDialog(text="Ce document est protégé. Entrez le mot de passe :", title="PDF Verrouillé")
             pwd = dialog.get_input()
@@ -72,7 +71,7 @@ class PdfEditorTab(ctk.CTkFrame):
                 raise ValueError("Encrypted")
                 
         self.current_page_idx = 0
-        self.zoom_level = 1.3
+        self.zoom_level = 1.0 
         self.pages_data = {} 
         
         self.selected_items = []
@@ -87,10 +86,12 @@ class PdfEditorTab(ctk.CTkFrame):
         self.item_original_fonts = {} 
         self.image_refs = {} 
         self.current_pil_image = None 
-        
         self.is_modified = False 
         
+        self.thumbnail_buttons = [] 
+        
         self._setup_ui()
+        self._load_thumbnails_async() 
         self._setup_bindings()
         self._show_page()
 
@@ -99,16 +100,21 @@ class PdfEditorTab(ctk.CTkFrame):
         return int(item) if item is not None else None
 
     def _setup_ui(self):
-        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Retrait des couleurs manuelles de scrollbar pour utiliser celles du thème par défaut
+        # --- PANNEAU LATÉRAL (THUMBNAILS) - STYLE ADOBE ---
+        self.sidebar_frame = ctk.CTkScrollableFrame(self, width=160, fg_color=CARD_COLOR, border_width=0, corner_radius=0)
+        self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
+        
+        # --- ZONE PRINCIPALE (CANVAS PDF) ---
         self.scroll_canvas = ctk.CTkScrollableFrame(self, fg_color=BG_COLOR, corner_radius=0)
-        self.scroll_canvas.grid(row=0, column=0, sticky="nsew")
+        self.scroll_canvas.grid(row=0, column=1, sticky="nsew")
         self.canvas = Canvas(self.scroll_canvas, bg="white", bd=0, highlightthickness=0)
 
+        # --- BARRE DE STATUT (EN BAS) ---
         self.status_bar = ctk.CTkFrame(self, height=30, fg_color=TOPBAR_COLOR, corner_radius=0, border_width=1, border_color=BORDER_COLOR)
-        self.status_bar.grid(row=1, column=0, sticky="ew")
+        self.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
         self.status_bar.grid_propagate(False)
         
         nav_cnt = ctk.CTkFrame(self.status_bar, fg_color="transparent")
@@ -127,7 +133,46 @@ class PdfEditorTab(ctk.CTkFrame):
 
     def _create_nav_btn(self, parent, icon_name, command):
         icon = self.main_page._get_edit_icon(icon_name, size=(12, 12))
-        ctk.CTkButton(parent, text="", image=icon, width=24, height=24, corner_radius=4, fg_color="transparent", command=command).pack(side="left", padx=2)
+        btn = ctk.CTkButton(parent, text="" if icon else icon_name[0].upper(), image=icon, width=24, height=24, corner_radius=4, fg_color="transparent", command=command)
+        btn.pack(side="left", padx=2)
+
+    # --- GÉNÉRATION DES THUMBNAILS ---
+    def _load_thumbnails_async(self):
+        for i in range(len(self.pdf_doc)):
+            page = self.pdf_doc[i]
+            pix = page.get_pixmap(matrix=fitz.Matrix(0.15, 0.15))
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples) # type: ignore
+            photo = ctk.CTkImage(light_image=img, dark_image=img, size=(pix.width, pix.height))
+            
+            btn_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+            btn_frame.pack(pady=10, padx=10, fill="x")
+            
+            # MODIF : Remplacement de border_color="transparent" par CARD_COLOR
+            btn = ctk.CTkButton(
+                btn_frame, image=photo, text="", fg_color="transparent", 
+                hover_color=BORDER_COLOR, border_width=2, border_color=CARD_COLOR,
+                command=lambda idx=i: self.goto_page(idx)
+            )
+            btn.pack(pady=(0, 5))
+            
+            lbl = ctk.CTkLabel(btn_frame, text=str(i+1), font=(FONT_FAMILY, 10))
+            lbl.pack()
+            
+            self.thumbnail_buttons.append(btn)
+
+    def _update_thumbnail_highlight(self):
+        for i, btn in enumerate(self.thumbnail_buttons):
+            if i == self.current_page_idx:
+                btn.configure(border_color=ACCENT_PRIMARY)
+            else:
+                # MODIF : Remplacement de border_color="transparent" par CARD_COLOR
+                btn.configure(border_color=CARD_COLOR)
+
+    def goto_page(self, page_index):
+        if 0 <= page_index < len(self.pdf_doc) and page_index != self.current_page_idx:
+            self._save_current_page_state()
+            self.current_page_idx = page_index
+            self._show_page()
 
     def _setup_bindings(self):
         self.canvas.bind("<Button-1>", self._on_click)
@@ -148,18 +193,15 @@ class PdfEditorTab(ctk.CTkFrame):
         self._load_page_state() 
         self.page_label.configure(text=f"{t('page_lbl')} {self.current_page_idx + 1} / {len(self.pdf_doc)}")
         self.selected_items = []
+        self._update_thumbnail_highlight()
         self.main_page._sync_toolbar_with_selection()
 
     def _navigate(self, delta):
-        self._save_current_page_state()
-        new_idx = self.current_page_idx + delta
-        if 0 <= new_idx < len(self.pdf_doc):
-            self.current_page_idx = new_idx
-            self._show_page()
+        self.goto_page(self.current_page_idx + delta)
 
     def _change_zoom(self, delta):
         self._save_current_page_state()
-        self.zoom_level = max(0.5, min(4.0, self.zoom_level + delta))
+        self.zoom_level = max(0.3, min(4.0, self.zoom_level + delta))
         self.zoom_label.configure(text=f"{int(self.zoom_level*100)}%")
         self._show_page()
 
@@ -168,7 +210,6 @@ class PdfEditorTab(ctk.CTkFrame):
             p = filedialog.askopenfilename(title=t("load_sig"), filetypes=[("PNG Images", "*.png")])
             if not p: return
             Image.open(p).save(str(self.main_page.signature_img_path))
-
         try:
             orig = Image.open(str(self.main_page.signature_img_path)).convert("RGBA")
             w, h = 150, int(150 * (orig.height / orig.width))
@@ -190,11 +231,18 @@ class PdfEditorTab(ctk.CTkFrame):
         data["photo"] = photo
 
     def _on_click(self, event):
-        if self.main_page.mode_switch.get() == "View": return
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         if self.active_entry_window: self.canvas.focus_set(); return 
 
         mode = self.main_page.tool_mode
+        
+        # NOUVEL OUTIL : PAN (MAIN)
+        if mode == "pan":
+            self.canvas.scan_mark(event.x, event.y)
+            return
+
+        if self.main_page.mode_switch.get() == "View": return
+
         if mode == "select":
             if self.current_pdf_selection_rect:
                 self.canvas.delete(self.current_pdf_selection_rect); self.current_pdf_selection_rect = None; self.pdf_selection_bbox = None
@@ -232,8 +280,15 @@ class PdfEditorTab(ctk.CTkFrame):
                 except: pass
 
     def _on_drag(self, event):
-        if self.main_page.mode_switch.get() == "View": return
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
+        
+        # NOUVEL OUTIL : PAN (MAIN)
+        if self.main_page.tool_mode == "pan":
+            self.canvas.scan_dragto(event.x, event.y, gain=1)
+            return
+
+        if self.main_page.mode_switch.get() == "View": return
+
         mode = self.drag_data.get("mode")
         if self.main_page.tool_mode == "select":
             if mode == "move" and self.selected_items:
@@ -478,7 +533,8 @@ class EditPage(ctk.CTkFrame):
         self.editors = {} 
         self.active_tab_name = None
         
-        self.tool_mode = "select"
+        # Outil par défaut ajusté sur Pan (la main) pour le mode View
+        self.tool_mode = "pan"
         self.current_real_font_size = 14.0 
         self.current_color = "#000000" 
         self.last_x, self.last_y = 0, 0
@@ -493,7 +549,7 @@ class EditPage(ctk.CTkFrame):
         return None
 
     def _load_shortcuts(self):
-        self.shortcuts = {"select": "v", "text": "t", "draw": "d", "erase": "e", "signature": "p", "pipette": "i", "rotate": "r", "enlarge": "+", "shrink": "-"}
+        self.shortcuts = {"select": "v", "pan": "h", "text": "t", "draw": "d", "erase": "e", "signature": "p", "pipette": "i", "rotate": "r", "enlarge": "+", "shrink": "-"}
         cfg_path = self.app_data_dir / "shortcuts.json"
         if cfg_path.exists():
             try:
@@ -523,7 +579,7 @@ class EditPage(ctk.CTkFrame):
         container.pack(side="left", padx=15, pady=8, fill="y")
 
         self.mode_switch = ctk.CTkSegmentedButton(container, values=["View", "Edit"], command=self._on_mode_change, font=(FONT_FAMILY, SIZE_MAIN, "bold"))
-        self.mode_switch.set("Edit")
+        self.mode_switch.set("View")
         self.mode_switch.pack(side="left", padx=(0, 10))
 
         self._create_btn(container, "open", f"Ouvrir (Ctrl+O)", self._open_file_dialog)
@@ -531,9 +587,20 @@ class EditPage(ctk.CTkFrame):
         self._add_sep(container)
 
         self.tool_btns = {}
-        tools = [("cursor", "select", self.shortcuts["select"]), ("text", "text", self.shortcuts["text"]), ("draw", "draw", self.shortcuts["draw"]), ("eraser", "erase", self.shortcuts["erase"]), ("protect", "signature", self.shortcuts["signature"]), ("color", "pipette", self.shortcuts["pipette"])]
+        # NOUVEAU: Ajout de l'outil "pan" (La main Adobe) dans la barre
+        tools = [
+            ("hand", "pan", self.shortcuts["pan"]), 
+            ("cursor", "select", self.shortcuts["select"]), 
+            ("text", "text", self.shortcuts["text"]), 
+            ("draw", "draw", self.shortcuts["draw"]), 
+            ("eraser", "erase", self.shortcuts["erase"]), 
+            ("protect", "signature", self.shortcuts["signature"]), 
+            ("color", "pipette", self.shortcuts["pipette"])
+        ]
+        
         for icon, mode, shortcut in tools:
-            btn = self._create_btn(container, icon, f"{mode.capitalize()} ({shortcut.upper()})", lambda m=mode: self.set_tool(m))
+            # On passe une lettre par défaut si pas d'image ("H" pour Hand, "C" pour Cursor...)
+            btn = self._create_btn(container, icon, f"{mode.capitalize()} ({shortcut.upper()})", lambda m=mode: self.set_tool(m), fallback_text=mode[0].upper())
             self.tool_btns[mode] = btn
         
         self._add_sep(container)
@@ -561,7 +628,6 @@ class EditPage(ctk.CTkFrame):
         self.color_btn.pack(side="left", padx=5)
         ToolTip(self.color_btn, "Changer de couleur")
 
-        # NOUVEAU SYSTÈME D'ONGLETS SANS SCROLLBAR
         self.tab_bar = ctk.CTkFrame(self, height=36, fg_color="#2b2b2b", corner_radius=0, border_width=0)
         self.tab_bar.grid(row=1, column=0, sticky="ew")
         self.tab_bar.grid_propagate(False) 
@@ -569,10 +635,14 @@ class EditPage(ctk.CTkFrame):
         self.editor_container = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         self.editor_container.grid(row=2, column=0, sticky="nsew")
         self.grid_rowconfigure(2, weight=1)
+        
+        # Configuration initiale de l'état des outils
+        self._on_mode_change("View")
 
-    def _create_btn(self, parent, icon_name, tooltip_text, command):
+    def _create_btn(self, parent, icon_name, tooltip_text, command, fallback_text=""):
         icon = self._get_edit_icon(icon_name)
-        btn = ctk.CTkButton(parent, text="", image=icon, width=24, height=24, corner_radius=4, fg_color="transparent", command=command)
+        text_to_show = "" if icon else fallback_text
+        btn = ctk.CTkButton(parent, text=text_to_show, image=icon, width=24, height=24, corner_radius=4, fg_color="transparent", text_color=TEXT_MAIN, command=command)
         btn.pack(side="left", padx=3)
         ToolTip(btn, tooltip_text)
         return btn
@@ -652,25 +722,36 @@ class EditPage(ctk.CTkFrame):
 
     # --- GESTION DU MODE ET DES ACTIONS ---
     def _on_mode_change(self, value):
-        state = "normal" if value == "Edit" else "disabled"
-        for btn in self.tool_btns.values(): btn.configure(state=state)
+        # En mode "View", seul l'outil Pan est actif et les outils d'édition sont grisés
+        is_edit = (value == "Edit")
+        state = "normal" if is_edit else "disabled"
+        
+        for name, btn in self.tool_btns.items(): 
+            if name != "pan": btn.configure(state=state)
+            
         self.btn_rotate.configure(state=state); self.btn_plus.configure(state=state); self.btn_minus.configure(state=state); self.btn_trash.configure(state=state)
         self.font_menu.configure(state=state); self.size_menu.configure(state=state); self.color_btn.configure(state=state)
-        if value == "View":
-            for btn in self.tool_btns.values(): btn.configure(fg_color="transparent")
+        
+        if not is_edit:
+            self.set_tool("pan")
         else:
-            self.set_tool(self.tool_mode) 
+            self.set_tool("select")
 
     def set_tool(self, mode):
-        if self.mode_switch.get() == "View": return
+        # Empecher la sélection d'outils d'édition en mode View
+        if self.mode_switch.get() == "View" and mode != "pan": return
+        
         editor = self.get_active_editor()
         if editor and editor.active_entry_window: editor.canvas.focus_set()
+        
         self.tool_mode = mode
         if editor:
             editor.selected_items = []; editor.canvas.delete("highlighter")
             if editor.current_pdf_selection_rect:
                 editor.canvas.delete(editor.current_pdf_selection_rect); editor.current_pdf_selection_rect = None
-        for m, btn in self.tool_btns.items(): btn.configure(fg_color="#44475a" if m == mode else "transparent")
+                
+        for m, btn in self.tool_btns.items(): 
+            btn.configure(fg_color="#44475a" if m == mode else "transparent")
 
     def _sync_toolbar_with_selection(self):
         editor = self.get_active_editor()
@@ -790,7 +871,6 @@ class EditPage(ctk.CTkFrame):
 
     def _safe_shortcut(self, func):
         if not self.winfo_ismapped(): return
-        if self.mode_switch.get() == "View": return 
         focus = self.focus_get()
         if isinstance(focus, (Entry, Text, ctk.CTkEntry, ctk.CTkComboBox)): return
         editor = self.get_active_editor()
@@ -814,22 +894,23 @@ class EditPage(ctk.CTkFrame):
             elif keysym in ("minus", "subtract", "kp_subtract"): editor and editor._change_zoom(-0.1)
             return
 
-        if self.mode_switch.get() == "View": return
-
         for action, key in self.shortcuts.items():
             if key.lower() in (char, keysym):
-                if action == "select": self.set_tool("select")
-                elif action == "text": self.set_tool("text")
-                elif action == "draw": self.set_tool("draw")
-                elif action == "erase": self.set_tool("erase")
-                elif action == "signature": self.set_tool("signature")
-                elif action == "pipette": self.set_tool("pipette")
-                elif action == "rotate": self._rotate_selected()
-                elif action == "enlarge": self._change_item_size(1.1)
-                elif action == "shrink": self._change_item_size(0.9)
+                if action == "pan": self.set_tool("pan")
+                elif self.mode_switch.get() == "Edit":
+                    if action == "select": self.set_tool("select")
+                    elif action == "text": self.set_tool("text")
+                    elif action == "draw": self.set_tool("draw")
+                    elif action == "erase": self.set_tool("erase")
+                    elif action == "signature": self.set_tool("signature")
+                    elif action == "pipette": self.set_tool("pipette")
+                    elif action == "rotate": self._rotate_selected()
+                    elif action == "enlarge": self._change_item_size(1.1)
+                    elif action == "shrink": self._change_item_size(0.9)
                 return
 
-        if keysym in ("delete", "backspace"): self._delete_selected()
+        if self.mode_switch.get() == "Edit" and keysym in ("delete", "backspace"): 
+            self._delete_selected()
 
     def save_changes(self, target_name=None):
         name = target_name if target_name else self.active_tab_name
