@@ -65,10 +65,10 @@ jobs:
           name: BulkPDF v${{ steps.get_version.outputs.VERSION }}
           body: |
             ## Installation
-            1. Téléchargez `BulkPDF_Setup.exe`.
-            2. Si Windows affiche une alerte SmartScreen :
-               - Cliquez sur **"Informations complémentaires"**.
-               - Cliquez sur **"Exécuter quand même"**.
+            1. Download `BulkPDF_Setup_${{steps.get_version.outputs.VERSION}}.exe`.
+            2. If Windows displays a SmartScreen alert :
+               - Click **"More info"**.
+               - Click **"Run anyway"**.
           files: |
             Output/*.exe
             Output/SHA256SUMS.txt
